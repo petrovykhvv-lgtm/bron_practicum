@@ -1,0 +1,155 @@
+// Схема данных Verde Marea. Правила — в SPEC.md (раздел «Модель данных»).
+// Ограничения, которые Prisma не выражает (диапазоны, исключающие пересечения),
+// лежат в миграции 20261001192700_booking_constraints.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  user
+  admin
+  super_admin
+}
+
+enum BookingStatus {
+  pending
+  confirmed
+  cancelled
+  completed
+  no_show
+}
+
+enum NotificationType {
+  booking_created
+  booking_confirmed
+  booking_cancelled
+  booking_completed
+  booking_no_show
+  role_changed
+}
+
+enum AuditAction {
+  user_registered
+  user_role_changed
+  booking_created
+  booking_status_changed
+  slot_closed
+  slot_reopened
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(user)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions      Session[]
+  bookings      Booking[]
+  notifications Notification[]
+  auditEntries  AuditLog[]    @relation("AuditActor")
+  closedSlots   Slot[]
+
+  @@index([role])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  // В БД хранится только хеш токена, сам токен живёт в cookie.
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Table {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  capacity  Int
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  bookings Booking[]
+}
+
+// Окна считаются по правилам (src/lib/booking/rules.ts) и не хранятся списком.
+// Slot — явная запись управления окном: администратор закрывает конкретное окно.
+// Нет записи — окно управляется только правилами; isClosed = false — окно снова открыто.
+model Slot {
+  id          String   @id @default(cuid())
+  startsAt    DateTime @unique
+  isClosed    Boolean  @default(true)
+  reason      String?
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  updatedBy User? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+}
+
+model Booking {
+  id        String        @id @default(cuid())
+  userId    String
+  tableId   String
+  startsAt  DateTime
+  endsAt    DateTime
+  partySize Int
+  status    BookingStatus @default(pending)
+  comment   String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  table         Table          @relation(fields: [tableId], references: [id], onDelete: Restrict)
+  notifications Notification[]
+
+  @@index([userId, startsAt])
+  @@index([status, startsAt])
+  @@index([tableId, startsAt])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  bookingId String?
+  type      NotificationType
+  title     String
+  body      String
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@index([userId, readAt, createdAt])
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  actorId    String?
+  action     AuditAction
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  createdAt  DateTime    @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([createdAt])
+}
