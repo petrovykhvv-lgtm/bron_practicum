@@ -1,26 +1,133 @@
 @import "tailwindcss";
 
+/* Токены Verde Marea — design.md */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --vm-green: #1f4d3a;
+  --vm-green-hover: #183c2d;
+  --vm-green-tint: #e3ece6;
+  --vm-gold: #c7a76c;
+  --vm-gold-tint: #f2e9d6;
+  --vm-cream: #f5f1e8;
+  --vm-ink: #1b1b1b;
+  --vm-muted: #5e5b54;
+  --vm-surface: #ffffff;
+  --vm-line: #ddd6c6;
+  --vm-danger: #9b3b2e;
+  --vm-danger-tint: #f5e1dd;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-vm-green: var(--vm-green);
+  --color-vm-green-hover: var(--vm-green-hover);
+  --color-vm-green-tint: var(--vm-green-tint);
+  --color-vm-gold: var(--vm-gold);
+  --color-vm-gold-tint: var(--vm-gold-tint);
+  --color-vm-cream: var(--vm-cream);
+  --color-vm-ink: var(--vm-ink);
+  --color-vm-muted: var(--vm-muted);
+  --color-vm-surface: var(--vm-surface);
+  --color-vm-line: var(--vm-line);
+  --color-vm-danger: var(--vm-danger);
+  --color-vm-danger-tint: var(--vm-danger-tint);
+  --font-sans: var(--font-manrope), system-ui, sans-serif;
+  --font-serif: var(--font-cormorant), Georgia, serif;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--vm-cream);
+  color: var(--vm-ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+h1, h2 {
+  font-family: var(--font-serif);
+  line-height: 1.15;
+}
+
+:focus-visible {
+  outline: 2px solid var(--vm-gold);
+  outline-offset: 2px;
+}
+
+@layer components {
+  .vm-card {
+    background: var(--vm-surface);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    box-shadow: 0 1px 2px rgba(27, 27, 27, 0.06), 0 4px 16px rgba(27, 27, 27, 0.06);
+  }
+  .vm-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .vm-input {
+    width: 100%;
+    height: 44px;
+    padding: 0 12px;
+    background: var(--vm-surface);
+    border: 1px solid var(--vm-line);
+    border-radius: var(--radius-sm);
+  }
+  .vm-input:focus {
+    border-color: var(--vm-green);
+  }
+  .vm-input[aria-invalid="true"] {
+    border-color: var(--vm-danger);
+  }
+  .vm-error {
+    color: var(--vm-danger);
+    font-size: 12px;
+    margin-top: 4px;
+  }
+  .vm-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 24px;
+    font-weight: 600;
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background-color 0.15s;
+  }
+  .vm-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .vm-btn-primary {
+    background: var(--vm-green);
+    color: var(--vm-cream);
+  }
+  .vm-btn-primary:hover:not(:disabled) {
+    background: var(--vm-green-hover);
+  }
+  .vm-btn-secondary {
+    background: transparent;
+    border-color: var(--vm-green);
+    color: var(--vm-green);
+  }
+  .vm-btn-secondary:hover:not(:disabled) {
+    background: var(--vm-green-tint);
+  }
+  .vm-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
 }
