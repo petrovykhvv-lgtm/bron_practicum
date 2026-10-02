@@ -1,9 +1,10 @@
 import { Icon } from "./ui/Icon";
 
 // Демо-доступ для проверяющего. Значения берутся из тех же переменных, что и seed, поэтому не расходятся с базой.
-// Отключается переменной SHOW_DEMO_ACCOUNTS="false" (для любого запуска не на локальной машине).
+// Показывается только при SHOW_DEMO_ACCOUNTS="true" (в .env.example включено для локальной проверки);
+// без переменной рамка скрыта, поэтому пароли не появятся на странице случайно.
 export function DemoAccounts() {
-  if (process.env.SHOW_DEMO_ACCOUNTS === "false") return null;
+  if (process.env.SHOW_DEMO_ACCOUNTS !== "true") return null;
   const superEmail = process.env.SEED_SUPER_ADMIN_EMAIL;
   const superPassword = process.env.SEED_SUPER_ADMIN_PASSWORD;
   const demoPassword = process.env.SEED_DEMO_PASSWORD;

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { getRestaurantTz } from "@/lib/config";
 import { authorizeApi } from "@/lib/auth/current-user";
 import { auditQuerySchema } from "@/lib/admin/schemas";
-import { listAudit } from "@/lib/admin/service";
+import { listAuditPage } from "@/lib/admin/service";
 import { jsonError, validationError } from "@/lib/http";
 
 // Admin видит историю броней и окон; смену ролей и регистрации — только super_admin (фильтруется в сервисе).
@@ -16,10 +16,11 @@ export async function GET(request: Request) {
     entityType: params.get("entityType"),
     entityId: params.get("entityId"),
     limit: params.get("limit"),
+    page: params.get("page"),
   });
   if (!parsed.success) return validationError(parsed.error);
 
-  const result = await listAudit(prisma, { id: auth.user.id, role: auth.user.role }, parsed.data, getRestaurantTz());
+  const result = await listAuditPage(prisma, { id: auth.user.id, role: auth.user.role }, parsed.data, getRestaurantTz());
   if (!result.ok) return jsonError(403, "forbidden", "Недостаточно прав для этого действия");
-  return NextResponse.json({ entries: result.data });
+  return NextResponse.json(result.data);
 }

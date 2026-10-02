@@ -7,6 +7,7 @@ export type Permission =
   | "booking:cancel_own"
   | "booking:view_all"
   | "booking:change_status"
+  | "booking:assign_table"
   | "slot:manage"
   | "user:list"
   | "user:change_role"
@@ -23,6 +24,7 @@ const ADMIN_PERMISSIONS: Permission[] = [
   ...USER_PERMISSIONS,
   "booking:view_all",
   "booking:change_status",
+  "booking:assign_table",
   "slot:manage",
   "user:list",
   "audit:view_bookings",
@@ -55,6 +57,7 @@ export const AUDIT_ENTITY_TYPES: Record<Role, readonly string[]> = {
 export const CAPABILITIES: { permission: Permission; label: string }[] = [
   { permission: "booking:view_all", label: "Видеть все бронирования и фильтровать их" },
   { permission: "booking:change_status", label: "Подтверждать, отменять, завершать брони и отмечать «не пришёл»" },
+  { permission: "booking:assign_table", label: "Пересаживать гостей: менять стол у активной брони" },
   { permission: "slot:manage", label: "Закрывать и открывать окна записи" },
   { permission: "user:list", label: "Видеть список пользователей" },
   { permission: "audit:view_bookings", label: "Смотреть историю броней и окон" },

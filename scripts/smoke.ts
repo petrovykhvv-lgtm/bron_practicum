@@ -64,6 +64,13 @@ async function main() {
   const avail = await anon.call("GET", "/api/availability?partySize=2");
   check("доступные окна считаются", avail.status === 200 && avail.json.windows.length > 0, String(avail.status));
   check("аноним не видит админский API", (await anon.call("GET", "/api/admin/bookings")).status === 401);
+  const guarded = ["/account", "/book", "/bookings", "/notifications", "/admin", "/admin/bookings", "/admin/floor", "/admin/slots", "/admin/history", "/admin/users"];
+  const redirects: Loose[] = [];
+  for (const path of guarded) {
+    const response = await fetch(BASE + path, { redirect: "manual" });
+    redirects.push([response.status, response.headers.get("location")]);
+  }
+  check("защищённые страницы без входа перенаправляют на /login настоящим 307 (не 200 с meta refresh)", redirects.every(([status, location]) => status === 307 && String(location).endsWith("/login")), JSON.stringify(redirects));
   check("аноним не создаёт бронь", (await anon.call("POST", "/api/bookings", { startsAt: "2030-01-01T09:00:00Z", partySize: 2 })).status === 401);
 
   section("2. Регистрация и вход");
@@ -74,6 +81,11 @@ async function main() {
   check("сессия открыта после регистрации", (await guest.call("GET", "/api/auth/me")).status === 200);
   check("выход закрывает сессию", (await guest.call("POST", "/api/auth/logout")).status === 200 && (await guest.call("GET", "/api/auth/me")).status === 401);
   check("неверный пароль: 401", (await guest.call("POST", "/api/auth/login", { email, password: "wrong-password" })).status === 401);
+  const victim = `ratelimit.${Date.now()}@verdemarea.local`;
+  const attempts = [];
+  for (let i = 0; i < 6; i++) attempts.push((await anon.call("POST", "/api/auth/login", { email: victim, password: "wrong-password" })).status);
+  check("подбор пароля: после 5 неудач вход закрыт (429), остальные пользователи не затронуты", attempts.slice(0, 5).every((s) => s === 401) && attempts[5] === 429 && (await guest.call("POST", "/api/auth/login", { email, password })).status === 200);
+  check("чужой сайт без Origin отклоняется (CSRF)", (await fetch(BASE + "/api/auth/logout", { method: "POST", headers: { "Sec-Fetch-Site": "cross-site" } })).status === 403);
   const login = await guest.call("POST", "/api/auth/login", { email, password });
   check("вход с верным паролем: 200", login.status === 200 && !login.text.includes("passwordHash"));
 
@@ -103,6 +115,22 @@ async function main() {
   const day = target.date;
   check("фильтр по дате находит бронь", has((await admin.call("GET", `/api/admin/bookings?from=${day}&to=${day}`)).json.bookings, (b) => b.id === bookingId));
   check("подтверждение: 200", (await admin.call("POST", `/api/admin/bookings/${bookingId}/status`, { status: "confirmed" })).status === 200);
+  const early = await admin.call("POST", `/api/admin/bookings/${bookingId}/status`, { status: "completed" });
+  check("завершить до начала брони нельзя: 409 too_early", early.status === 409 && early.json?.error?.code === "too_early");
+  const confirmedRow = (await admin.call("GET", "/api/admin/bookings?status=confirmed")).json.bookings.find((b: Loose) => b.id === bookingId);
+  check("в списке только допустимые переходы: отмена (без завершения до начала)", confirmedRow?.nextStatuses.join() === "cancelled" && confirmedRow.startsInFuture === true);
+  const option = confirmedRow?.tableOptions?.[0];
+  check("список предлагает свободные столы для пересадки", !!option && option.capacity >= 2);
+  const reseat = await admin.call("POST", `/api/admin/bookings/${bookingId}/table`, { tableId: option?.id });
+  check("пересадка: 200 и новый стол в списке", reseat.status === 200 && (await admin.call("GET", "/api/admin/bookings?status=confirmed")).json.bookings.find((b: Loose) => b.id === bookingId)?.table.id === option?.id, reseat.text.slice(0, 100));
+  check("пересадка на тот же стол: 409; гость не может пересаживать: 403", (await admin.call("POST", `/api/admin/bookings/${bookingId}/table`, { tableId: option?.id })).status === 409 && (await guest.call("POST", `/api/admin/bookings/${bookingId}/table`, { tableId: option?.id })).status === 403);
+  check("гость получил уведомление «Стол изменён»", has((await guest.call("GET", "/api/notifications")).json.notifications, (n) => n.type === "booking_table_changed"));
+  const pageOne = await admin.call("GET", "/api/admin/bookings?page=1");
+  check("список постраничный: total, pageCount, page", pageOne.json.total >= 6 && pageOne.json.pageCount >= 1 && pageOne.json.page === 1);
+  check("страница вне диапазона не ломает выдачу", (await admin.call("GET", "/api/admin/bookings?page=9999")).status === 200);
+  const histPage = await admin.call("GET", "/api/admin/audit?limit=2&page=2");
+  check("история постранично: 2 записи на странице", histPage.status === 200 && histPage.json.entries.length === 2 && histPage.json.pageCount > 1);
+  check("план зала: админу открывается, гостю нет", (await admin.call("GET", `/admin/floor?date=${day}`)).status === 200 && (await guest.call("GET", "/admin/floor")).status === 307);
   check("повторное подтверждение: 409", (await admin.call("POST", `/api/admin/bookings/${bookingId}/status`, { status: "confirmed" })).status === 409);
   check("гость получил «Бронь подтверждена»", has((await guest.call("GET", "/api/notifications")).json.notifications, (n) => n.type === "booking_confirmed"));
   const cancel = await guest.call("POST", `/api/bookings/${bookingId}/cancel`);

@@ -5,6 +5,7 @@ import { countUnread } from "@/lib/booking/service";
 import { can } from "@/lib/permissions";
 import { LogoutButton } from "./LogoutButton";
 import { Icon } from "./ui/Icon";
+import { MobileMenu } from "./ui/MobileMenu";
 import { NavLinks, type NavItem } from "./ui/NavLinks";
 
 export async function SiteHeader() {
@@ -47,25 +48,20 @@ export async function SiteHeader() {
           )}
         </div>
 
-        <details className="group relative xl:hidden">
-          <summary className="vm-btn vm-btn-secondary vm-btn-sm list-none">
-            Меню{unread > 0 ? ` · ${unread}` : ""}
-          </summary>
-          <div className="vm-glass vm-glass-strong absolute right-0 top-12 z-40 flex w-64 flex-col gap-1 p-3">
-            <NavLinks items={items} label="Основная навигация" className="flex flex-col gap-1" />
-            {user ? (
-              <>
-                <Link href="/account" className="vm-navlink">{user.name}</Link>
-                <LogoutButton />
-              </>
-            ) : (
-              <>
-                <Link href="/login" className="vm-navlink">Войти</Link>
-                <Link href="/register" className="vm-btn vm-btn-primary vm-btn-sm">Регистрация</Link>
-              </>
-            )}
-          </div>
-        </details>
+        <MobileMenu label={`Меню${unread > 0 ? ` · ${unread}` : ""}`}>
+          <NavLinks items={items} label="Основная навигация" className="flex flex-col gap-1" />
+          {user ? (
+            <>
+              <Link href="/account" className="vm-navlink">{user.name}</Link>
+              <LogoutButton />
+            </>
+          ) : (
+            <>
+              <Link href="/login" className="vm-navlink">Войти</Link>
+              <Link href="/register" className="vm-btn vm-btn-primary vm-btn-sm">Регистрация</Link>
+            </>
+          )}
+        </MobileMenu>
       </div>
     </div>
   );

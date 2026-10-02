@@ -1,5 +1,5 @@
 import type { BookingStatus, Role } from "@/generated/prisma/client";
-import { addDays, getZonedParts, weekdayOf, zonedTimeToUtc } from "./tz";
+import { addDays, getZonedParts, weekdayOf, zonedTimeToUtc, type LocalDate } from "./tz";
 
 // ---- Константы правил (SPEC.md, раздел 6) ----
 export const BOOKING_HORIZON_DAYS = 14; // сегодня и ещё 13 дней вперёд
@@ -39,20 +39,29 @@ export function overlaps(a: Interval, b: Interval): boolean {
   return a.startsAt < b.endsAt && b.startsAt < a.endsAt;
 }
 
+export function isOpenDay(date: LocalDate): boolean {
+  return OPEN_WEEKDAYS.includes(weekdayOf(date));
+}
+
+// Все окна одного календарного дня по сетке (без учёта прошлого, занятости и столов); в выходной пусто.
+export function windowsForDate(date: LocalDate, timeZone: string): Interval[] {
+  if (!isOpenDay(date)) return [];
+  const result: Interval[] = [];
+  for (let m = FIRST_SLOT_MINUTES; m <= LAST_SLOT_MINUTES; m += SLOT_STEP_MINUTES) {
+    const startsAt = zonedTimeToUtc({ ...date, hour: Math.floor(m / 60), minute: m % 60 }, timeZone);
+    result.push({ startsAt, endsAt: new Date(startsAt.getTime() + SLOT_STEP_MINUTES * MINUTE) });
+  }
+  return result;
+}
+
 // Все окна, допустимые правилами календаря и времени. Занятость и столы не учитываются.
 export function candidateWindows(now: Date, timeZone: string): Interval[] {
   const today = getZonedParts(now, timeZone);
   const result: Interval[] = [];
   for (let offset = 0; offset < BOOKING_HORIZON_DAYS; offset++) {
-    const date = addDays(today, offset);
-    if (!OPEN_WEEKDAYS.includes(weekdayOf(date))) continue;
-    for (let m = FIRST_SLOT_MINUTES; m <= LAST_SLOT_MINUTES; m += SLOT_STEP_MINUTES) {
-      const startsAt = zonedTimeToUtc(
-        { ...date, hour: Math.floor(m / 60), minute: m % 60 },
-        timeZone,
-      );
-      if (startsAt <= now) continue; // прошедшее время
-      result.push({ startsAt, endsAt: new Date(startsAt.getTime() + SLOT_STEP_MINUTES * MINUTE) });
+    for (const window of windowsForDate(addDays(today, offset), timeZone)) {
+      if (window.startsAt <= now) continue; // прошедшее время
+      result.push(window);
     }
   }
   return result;
@@ -130,7 +139,7 @@ export function allowedNextStatuses(from: BookingStatus): BookingStatus[] {
 
 export type TransitionResult =
   | { ok: true }
-  | { ok: false; reason: "invalid_transition" | "forbidden" | "deadline_passed" };
+  | { ok: false; reason: "invalid_transition" | "forbidden" | "deadline_passed" | "too_early" };
 
 export interface TransitionInput {
   from: BookingStatus;
@@ -146,7 +155,11 @@ export function checkTransition(input: TransitionInput): TransitionResult {
   if (!TRANSITIONS[from].includes(to)) return { ok: false, reason: "invalid_transition" };
 
   const isStaff = actorRole === "admin" || actorRole === "super_admin";
-  if (isStaff) return { ok: true };
+  if (isStaff) {
+    // Визит нельзя завершить и нельзя отметить «не пришёл», пока бронь не началась.
+    if ((to === "completed" || to === "no_show") && now < startsAt) return { ok: false, reason: "too_early" };
+    return { ok: true };
+  }
 
   // Обычный пользователь: только отмена своей брони до дедлайна.
   if (!actorIsOwner || to !== "cancelled") return { ok: false, reason: "forbidden" };

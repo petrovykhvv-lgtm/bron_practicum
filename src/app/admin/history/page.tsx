@@ -5,7 +5,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { getRestaurantTz } from "@/lib/config";
 import { prisma } from "@/lib/db";
 import { auditQuerySchema } from "@/lib/admin/schemas";
-import { listAudit } from "@/lib/admin/service";
+import { listAuditPage } from "@/lib/admin/service";
+import { Pager } from "@/components/ui/Pager";
 import { requireStaffPage } from "@/lib/admin/guard";
 import { ROLE_LABELS } from "@/lib/labels";
 import { AUDIT_ENTITY_TYPES, can } from "@/lib/permissions";
@@ -16,10 +17,10 @@ const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v
 export default async function AdminHistoryPage({ searchParams }: PageProps<"/admin/history">) {
   const user = await requireStaffPage("audit:view_bookings");
   const raw = await searchParams;
-  const parsed = auditQuerySchema.safeParse({ entityType: first(raw.type), entityId: undefined, limit: 150 });
+  const parsed = auditQuerySchema.safeParse({ entityType: first(raw.type), entityId: undefined, limit: undefined, page: first(raw.page) });
   const filter = parsed.success ? parsed.data : {};
 
-  const result = await listAudit(prisma, { id: user.id, role: user.role }, filter, getRestaurantTz());
+  const result = await listAuditPage(prisma, { id: user.id, role: user.role }, filter, getRestaurantTz());
   if (!result.ok) return null;
   const types = AUDIT_ENTITY_TYPES[user.role];
 
@@ -39,11 +40,11 @@ export default async function AdminHistoryPage({ searchParams }: PageProps<"/adm
           Изменения ролей и регистрации видит только суперадминистратор. Вам доступна история броней и окон записи.
         </Notice>
       )}
-      {result.data.length === 0 ? (
+      {result.data.entries.length === 0 ? (
         <div className="max-w-3xl"><EmptyState icon="list" title="Записей нет">В выбранном разделе пока ничего не происходило.</EmptyState></div>
       ) : (
         <ol className="flex max-w-4xl flex-col gap-2">
-          {result.data.map((e) => (
+          {result.data.entries.map((e) => (
             <li key={e.id} className="vm-card flex flex-col gap-1" style={{ padding: 16 }}>
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <span className="font-semibold">{e.label}</span>
@@ -57,6 +58,7 @@ export default async function AdminHistoryPage({ searchParams }: PageProps<"/adm
           ))}
         </ol>
       )}
+      <Pager basePath="/admin/history" params={{ type: filter.entityType }} page={result.data.page} pageCount={result.data.pageCount} total={result.data.total} />
     </div>
   );
 }

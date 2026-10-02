@@ -15,6 +15,7 @@ export async function GET(request: Request) {
     status: params.get("status"),
     from: params.get("from"),
     to: params.get("to"),
+    page: params.get("page"),
   });
   if (!parsed.success) return validationError(parsed.error);
 

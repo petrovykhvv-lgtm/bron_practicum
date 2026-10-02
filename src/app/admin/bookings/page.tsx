@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { BookingHistory } from "@/components/admin/BookingHistory";
 import { StatusActions } from "@/components/admin/StatusActions";
+import { TableReassign } from "@/components/admin/TableReassign";
+import { Pager } from "@/components/ui/Pager";
 import { StatusBadge } from "@/components/StatusBadge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Notice } from "@/components/ui/Notice";
@@ -15,19 +17,19 @@ import { STATUS_LABELS } from "@/lib/labels";
 
 const STATUSES = ["pending", "confirmed", "cancelled", "completed", "no_show"] as const;
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-const COLS = "md:grid-cols-[minmax(0,1.2fr)_minmax(0,1.3fr)_minmax(0,0.55fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1.9fr)]";
+const COLS = "md:grid-cols-[minmax(0,1.1fr)_minmax(0,1.7fr)_minmax(0,0.45fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1.9fr)]";
 const GRID = `md:grid ${COLS} md:items-center md:gap-4`;
 
 export default async function AdminBookingsPage({ searchParams }: PageProps<"/admin/bookings">) {
   const user = await requireStaffPage("booking:view_all");
   const raw = await searchParams;
-  const parsed = bookingFilterSchema.safeParse({ status: first(raw.status), from: first(raw.from), to: first(raw.to) });
+  const parsed = bookingFilterSchema.safeParse({ status: first(raw.status), from: first(raw.from), to: first(raw.to), page: first(raw.page) });
   const filter = parsed.success ? parsed.data : {};
   const tz = getRestaurantTz();
 
   const result = await listAdminBookings(prisma, { id: user.id, role: user.role }, filter, tz);
   if (!result.ok) return null;
-  const { bookings, truncated } = result.data;
+  const { bookings, total, page, pageCount } = result.data;
 
   const now = new Date();
   const todayKey = localDateKey(now, tz);
@@ -78,10 +80,7 @@ export default async function AdminBookingsPage({ searchParams }: PageProps<"/ad
         <Notice kind="error">Фильтры заданы неверно ({parsed.error.issues[0]?.message}), показаны все брони.</Notice>
       )}
 
-      <p className="text-sm text-vm-muted">
-        Найдено: {bookings.length}
-        {truncated && " (показаны первые 200, уточните фильтры)"}
-      </p>
+      <Pager basePath="/admin/bookings" params={{ status: filter.status, from: filter.from, to: filter.to }} page={page} pageCount={pageCount} total={total} />
 
       {bookings.length === 0 ? (
         <EmptyState icon="list" title="Броней не найдено" action={<Link href="/admin/bookings" className="vm-btn vm-btn-secondary vm-btn-sm">Сбросить фильтры</Link>}>
@@ -108,13 +107,21 @@ export default async function AdminBookingsPage({ searchParams }: PageProps<"/ad
                 <p className="text-sm"><span className="md:hidden text-vm-muted">Стол: </span>{b.table.name} <span className="text-vm-muted">({b.table.capacity})</span></p>
                 <div><StatusBadge status={b.status} /></div>
                 <div className="flex flex-col gap-2">
-                  <StatusActions bookingId={b.id} next={b.nextStatuses} />
+                  <StatusActions
+                    bookingId={b.id}
+                    next={b.nextStatuses}
+                    hint={b.status === "confirmed" && b.startsInFuture ? "Завершить и «Не пришёл» доступны после начала брони" : undefined}
+                  />
+                  <TableReassign bookingId={b.id} currentName={b.table.name} options={b.tableOptions} />
                   <BookingHistory bookingId={b.id} />
                 </div>
               </li>
             ))}
           </ul>
         </div>
+      )}
+      {bookings.length > 0 && pageCount > 1 && (
+        <Pager basePath="/admin/bookings" params={{ status: filter.status, from: filter.from, to: filter.to }} page={page} pageCount={pageCount} total={total} />
       )}
     </div>
   );

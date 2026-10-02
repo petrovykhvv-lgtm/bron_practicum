@@ -62,6 +62,8 @@ export async function authenticate(db: PrismaClient, input: LoginInput): Promise
 }
 
 export async function createSession(db: PrismaClient, userId: string, now = new Date()) {
+  // Просроченные сессии удаляются при каждом новом входе: отдельная чистка не нужна.
+  await db.session.deleteMany({ where: { expiresAt: { lte: now } } });
   const token = generateSessionToken();
   const expiresAt = new Date(now.getTime() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);
   await db.session.create({ data: { tokenHash: hashSessionToken(token), userId, expiresAt } });

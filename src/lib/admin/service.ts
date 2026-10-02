@@ -1,18 +1,22 @@
 import type { AuditAction, BookingStatus, NotificationType, PrismaClient, Role } from "@/generated/prisma/client";
 import { formatDateRu, formatDateTimeRu, localDateKey, localTime } from "@/lib/booking/format";
+import { dbViolation, isRetryableTransactionError } from "@/lib/booking/service";
 import {
   ACTIVE_STATUSES,
   allowedNextStatuses,
   BOOKING_HORIZON_DAYS,
   candidateWindows,
   checkTransition,
+  isOpenDay,
+  overlaps,
+  windowsForDate,
 } from "@/lib/booking/rules";
 import { addDays, zonedTimeToUtc, type LocalDate } from "@/lib/booking/tz";
 import { AUDIT_ENTITY_TYPES, can, PUBLIC_USER_SELECT } from "@/lib/permissions";
 import { describeAudit } from "./audit-describe";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const LIST_LIMIT = 200;
+export const ADMIN_PAGE_SIZE = 50;
 
 export interface Actor {
   id: string;
@@ -32,6 +36,8 @@ export interface AdminBookingFilter {
   status?: BookingStatus;
   from?: string; // YYYY-MM-DD, день по поясу ресторана, включительно
   to?: string; // YYYY-MM-DD, включительно
+  page?: number; // с 1
+  pageSize?: number; // по умолчанию ADMIN_PAGE_SIZE
 }
 
 export interface AdminBookingDto {
@@ -45,17 +51,26 @@ export interface AdminBookingDto {
   createdAt: string;
   table: { id: string; name: string; capacity: number };
   guest: { id: string; name: string; email: string };
+  tableOptions: { id: string; name: string; capacity: number }[]; // куда можно пересадить: свободные подходящие столы
   nextStatuses: BookingStatus[];
+  startsInFuture: boolean; // завершение и «не пришёл» доступны только после начала
 }
 
 export type AdminResult<T> = { ok: true; data: T } | { ok: false; reason: "forbidden" };
+
+export interface Paging {
+  total: number;
+  page: number;
+  pageCount: number;
+  pageSize: number;
+}
 
 export async function listAdminBookings(
   db: PrismaClient,
   actor: Actor,
   filter: AdminBookingFilter,
   timeZone: string,
-): Promise<AdminResult<{ bookings: AdminBookingDto[]; truncated: boolean }>> {
+): Promise<AdminResult<{ bookings: AdminBookingDto[] } & Paging>> {
   if (!can(actor.role, "booking:view_all")) return { ok: false, reason: "forbidden" };
 
   const range: { gte?: Date; lt?: Date } = {};
@@ -64,14 +79,21 @@ export async function listAdminBookings(
   if (from) range.gte = zonedTimeToUtc({ ...from, hour: 0, minute: 0 }, timeZone);
   if (to) range.lt = zonedTimeToUtc({ ...addDays(to, 1), hour: 0, minute: 0 }, timeZone);
 
+  const where = {
+    ...(filter.status ? { status: filter.status } : {}),
+    ...(range.gte || range.lt ? { startsAt: range } : {}),
+  };
+  const pageSize = Math.min(Math.max(filter.pageSize ?? ADMIN_PAGE_SIZE, 1), 200);
+  const total = await db.booking.count({ where });
+  const pageCount = Math.max(Math.ceil(total / pageSize), 1);
+  const page = Math.min(Math.max(filter.page ?? 1, 1), pageCount);
+
   const rows = await db.booking.findMany({
-    where: {
-      ...(filter.status ? { status: filter.status } : {}),
-      ...(range.gte || range.lt ? { startsAt: range } : {}),
-    },
+    where,
     select: {
       id: true,
       startsAt: true,
+      endsAt: true,
       partySize: true,
       status: true,
       comment: true,
@@ -79,28 +101,127 @@ export async function listAdminBookings(
       table: { select: { id: true, name: true, capacity: true } },
       user: { select: { id: true, name: true, email: true } },
     },
-    orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }],
-    take: LIST_LIMIT + 1,
+    orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }, { id: "asc" }],
+    skip: (page - 1) * pageSize,
+    take: pageSize,
   });
 
+  // Куда можно пересадить: активные столы нужной вместимости, свободные на окно брони.
   const now = new Date();
-  const bookings = rows.slice(0, LIST_LIMIT).map((r): AdminBookingDto => ({
-    id: r.id,
-    startsAt: r.startsAt.toISOString(),
-    dateLabel: formatDateRu(r.startsAt, timeZone),
-    time: localTime(r.startsAt, timeZone),
-    partySize: r.partySize,
-    status: r.status,
-    comment: r.comment,
-    createdAt: r.createdAt.toISOString(),
-    table: r.table,
-    guest: r.user,
-    nextStatuses: allowedNextStatuses(r.status).filter(
-      (to) =>
-        checkTransition({ from: r.status, to, actorRole: actor.role, actorIsOwner: false, startsAt: r.startsAt, now }).ok,
-    ),
-  }));
-  return { ok: true, data: { bookings, truncated: rows.length > LIST_LIMIT } };
+  const reseatable = rows.filter((r) => ACTIVE_STATUSES.includes(r.status) && r.endsAt > now);
+  let tables: { id: string; name: string; capacity: number }[] = [];
+  let busy: { tableId: string; startsAt: Date; endsAt: Date }[] = [];
+  if (reseatable.length > 0 && can(actor.role, "booking:assign_table")) {
+    const minStart = new Date(Math.min(...reseatable.map((r) => r.startsAt.getTime())));
+    const maxEnd = new Date(Math.max(...reseatable.map((r) => r.endsAt.getTime())));
+    [tables, busy] = await Promise.all([
+      db.table.findMany({ where: { isActive: true }, select: { id: true, name: true, capacity: true } }),
+      db.booking.findMany({
+        where: { status: { in: ACTIVE_STATUSES }, startsAt: { lt: maxEnd }, endsAt: { gt: minStart } },
+        select: { tableId: true, startsAt: true, endsAt: true },
+      }),
+    ]);
+  }
+
+  const bookings = rows.map((r): AdminBookingDto => {
+    const canReseat = ACTIVE_STATUSES.includes(r.status) && r.endsAt > now;
+    const busyIds = new Set(busy.filter((x) => overlaps(x, r)).map((x) => x.tableId));
+    return {
+      id: r.id,
+      startsAt: r.startsAt.toISOString(),
+      dateLabel: formatDateRu(r.startsAt, timeZone),
+      time: localTime(r.startsAt, timeZone),
+      partySize: r.partySize,
+      status: r.status,
+      comment: r.comment,
+      createdAt: r.createdAt.toISOString(),
+      table: r.table,
+      guest: r.user,
+      tableOptions: canReseat
+        ? tables
+            .filter((t) => t.id !== r.table.id && t.capacity >= r.partySize && !busyIds.has(t.id))
+            .sort((x, y) => x.capacity - y.capacity || x.name.localeCompare(y.name, "ru"))
+        : [],
+      startsInFuture: r.startsAt > now,
+      nextStatuses: allowedNextStatuses(r.status).filter(
+        (to) =>
+          checkTransition({ from: r.status, to, actorRole: actor.role, actorIsOwner: false, startsAt: r.startsAt, now }).ok,
+      ),
+    };
+  });
+  return { ok: true, data: { bookings, total, page, pageCount, pageSize } };
+}
+
+// ---- Пересадка: смена стола у активной брони ----
+export type ChangeTableResult =
+  | { ok: true; tableName: string }
+  | {
+      ok: false;
+      reason:
+        | "forbidden"
+        | "not_found"
+        | "not_active"
+        | "past"
+        | "table_not_found"
+        | "table_inactive"
+        | "too_small"
+        | "table_busy"
+        | "no_change";
+    };
+
+export async function changeBookingTable(
+  db: PrismaClient,
+  input: { actor: Actor; bookingId: string; tableId: string; now: Date; timeZone: string },
+): Promise<ChangeTableResult> {
+  const { actor, bookingId, tableId, now, timeZone } = input;
+  if (!can(actor.role, "booking:assign_table")) return { ok: false, reason: "forbidden" };
+
+  try {
+    return await db.$transaction(async (tx) => {
+      const booking = await tx.booking.findUnique({
+        where: { id: bookingId },
+        select: { id: true, userId: true, status: true, startsAt: true, endsAt: true, partySize: true, table: { select: { id: true, name: true } } },
+      });
+      if (!booking) return { ok: false, reason: "not_found" } as const;
+      if (!ACTIVE_STATUSES.includes(booking.status)) return { ok: false, reason: "not_active" } as const;
+      if (booking.endsAt <= now) return { ok: false, reason: "past" } as const;
+
+      const target = await tx.table.findUnique({ where: { id: tableId }, select: { id: true, name: true, capacity: true, isActive: true } });
+      if (!target) return { ok: false, reason: "table_not_found" } as const;
+      if (target.id === booking.table.id) return { ok: false, reason: "no_change" } as const;
+      if (!target.isActive) return { ok: false, reason: "table_inactive" } as const;
+      if (target.capacity < booking.partySize) return { ok: false, reason: "too_small" } as const;
+
+      // Пересечение по столу окончательно отсекает ограничение БД (booking_table_no_overlap).
+      await tx.booking.update({ where: { id: bookingId }, data: { tableId: target.id } });
+      await tx.auditLog.create({
+        data: {
+          actorId: actor.id,
+          action: "booking_table_changed",
+          entityType: "Booking",
+          entityId: bookingId,
+          before: { tableId: booking.table.id, tableName: booking.table.name },
+          after: { tableId: target.id, tableName: target.name },
+        },
+      });
+      await tx.notification.create({
+        data: {
+          userId: booking.userId,
+          bookingId,
+          type: "booking_table_changed",
+          title: "Стол изменён",
+          body: `Бронь на ${formatDateTimeRu(booking.startsAt, timeZone)}: теперь вас ждёт ${target.name} (раньше ${booking.table.name}).`,
+        },
+      });
+      return { ok: true, tableName: target.name } as const;
+    });
+  } catch (error) {
+    const violation = dbViolation(error);
+    if (violation?.message.includes("booking_table_no_overlap")) return { ok: false, reason: "table_busy" };
+    if (violation?.code === "23514") return { ok: false, reason: "too_small" };
+    if (isRetryableTransactionError(error)) return { ok: false, reason: "table_busy" };
+    throw error;
+  }
 }
 
 // ---- Смена статуса ----
@@ -113,7 +234,7 @@ const NOTIFICATION_BY_STATUS: Partial<Record<BookingStatus, NotificationType>> =
 
 export type ChangeStatusResult =
   | { ok: true; status: BookingStatus }
-  | { ok: false; reason: "forbidden" | "not_found" | "invalid_transition" | "stale" };
+  | { ok: false; reason: "forbidden" | "not_found" | "invalid_transition" | "too_early" | "stale" };
 
 export async function changeBookingStatus(
   db: PrismaClient,
@@ -137,7 +258,10 @@ export async function changeBookingStatus(
       startsAt: booking.startsAt,
       now,
     });
-    if (!check.ok) return { ok: false, reason: check.reason === "forbidden" ? "forbidden" : "invalid_transition" } as const;
+    if (!check.ok) {
+      const reason = check.reason === "forbidden" ? "forbidden" : check.reason === "too_early" ? "too_early" : "invalid_transition";
+      return { ok: false, reason } as const;
+    }
 
     // Условие по текущему статусу: из двух одновременных решений сработает только одно.
     const updated = await tx.booking.updateMany({ where: { id: bookingId, status: booking.status }, data: { status: to } });
@@ -270,7 +394,8 @@ export async function setSlotClosed(
 export interface AuditFilter {
   entityType?: string;
   entityId?: string;
-  limit?: number;
+  limit?: number; // размер страницы, до 300
+  page?: number; // с 1
 }
 
 export interface AuditEntryDto {
@@ -291,15 +416,32 @@ export async function listAudit(
   filter: AuditFilter,
   timeZone: string,
 ): Promise<AdminResult<AuditEntryDto[]>> {
+  const result = await listAuditPage(db, actor, { ...filter, limit: filter.limit ?? 100 }, timeZone);
+  return result.ok ? { ok: true, data: result.data.entries } : result;
+}
+
+// История постранично: страница, общее число записей и число страниц.
+export async function listAuditPage(
+  db: PrismaClient,
+  actor: Actor,
+  filter: AuditFilter,
+  timeZone: string,
+): Promise<AdminResult<{ entries: AuditEntryDto[] } & Paging>> {
   if (!can(actor.role, "audit:view_bookings")) return { ok: false, reason: "forbidden" };
   const allowed = AUDIT_ENTITY_TYPES[actor.role];
   const types = filter.entityType ? allowed.filter((t) => t === filter.entityType) : [...allowed];
-  if (types.length === 0) return { ok: true, data: [] };
+  const pageSize = Math.min(Math.max(filter.limit ?? ADMIN_PAGE_SIZE, 1), 300);
+  if (types.length === 0) return { ok: true, data: { entries: [], total: 0, page: 1, pageCount: 1, pageSize } };
 
+  const where = { entityType: { in: types }, ...(filter.entityId ? { entityId: filter.entityId } : {}) };
+  const total = await db.auditLog.count({ where });
+  const pageCount = Math.max(Math.ceil(total / pageSize), 1);
+  const page = Math.min(Math.max(filter.page ?? 1, 1), pageCount);
   const rows = await db.auditLog.findMany({
-    where: { entityType: { in: types }, ...(filter.entityId ? { entityId: filter.entityId } : {}) },
-    orderBy: { createdAt: "desc" },
-    take: Math.min(filter.limit ?? 100, 300),
+    where,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    skip: (page - 1) * pageSize,
+    take: pageSize,
   });
 
   const actorIds = [...new Set(rows.map((r) => r.actorId).filter((id): id is string => !!id))];
@@ -317,38 +459,36 @@ export async function listAudit(
   const bookingBy = new Map(bookings.map((b) => [b.id, b]));
   const targetBy = new Map(targets.map((u) => [u.id, u.name]));
 
-  return {
-    ok: true,
-    data: rows.map((r): AuditEntryDto => {
-      const b = r.entityType === "Booking" ? bookingBy.get(r.entityId) : undefined;
-      const { label, detail } = describeAudit(
-        { action: r.action, before: r.before, after: r.after },
-        {
-          actorId: r.actorId,
-          booking: b && {
-            userId: b.userId,
-            guestName: b.user.name,
-            when: formatDateTimeRu(b.startsAt, timeZone),
-            partySize: b.partySize,
-            tableName: b.table.name,
-          },
-          targetUserName: r.entityType === "User" ? targetBy.get(r.entityId) : undefined,
+  const entries = rows.map((r): AuditEntryDto => {
+    const b = r.entityType === "Booking" ? bookingBy.get(r.entityId) : undefined;
+    const { label, detail } = describeAudit(
+      { action: r.action, before: r.before, after: r.after },
+      {
+        actorId: r.actorId,
+        booking: b && {
+          userId: b.userId,
+          guestName: b.user.name,
+          when: formatDateTimeRu(b.startsAt, timeZone),
+          partySize: b.partySize,
+          tableName: b.table.name,
         },
-      );
-      const a = r.actorId ? actorBy.get(r.actorId) : undefined;
-      return {
-        id: r.id,
-        createdAt: r.createdAt.toISOString(),
-        createdLabel: formatDateTimeRu(r.createdAt, timeZone),
-        action: r.action,
-        label,
-        detail,
-        entityType: r.entityType,
-        entityId: r.entityId,
-        actor: a ? { id: a.id, name: a.name, email: a.email, role: a.role } : null,
-      };
-    }),
-  };
+        targetUserName: r.entityType === "User" ? targetBy.get(r.entityId) : undefined,
+      },
+    );
+    const a = r.actorId ? actorBy.get(r.actorId) : undefined;
+    return {
+      id: r.id,
+      createdAt: r.createdAt.toISOString(),
+      createdLabel: formatDateTimeRu(r.createdAt, timeZone),
+      action: r.action,
+      label,
+      detail,
+      entityType: r.entityType,
+      entityId: r.entityId,
+      actor: a ? { id: a.id, name: a.name, email: a.email, role: a.role } : null,
+    };
+  });
+  return { ok: true, data: { entries, total, page, pageCount, pageSize } };
 }
 
 // ---- Обзор для начала смены ----
@@ -400,6 +540,89 @@ export async function getAdminOverview(
         tableName: q.table.name,
         guestName: q.user.name,
       })),
+    },
+  };
+}
+
+// ---- План зала на день: столы × время ----
+export interface FloorCell {
+  id: string;
+  guestName: string;
+  partySize: number;
+  status: BookingStatus;
+  comment: string | null;
+}
+
+export interface FloorPlan {
+  date: string;
+  dateLabel: string;
+  prev: string;
+  next: string;
+  today: string;
+  isOpenDay: boolean;
+  columns: { time: string; startsAt: string; closed: boolean; reason: string | null }[];
+  rows: { table: { id: string; name: string; capacity: number; isActive: boolean }; cells: (FloorCell | null)[] }[];
+  totals: { bookings: number; guests: number; freeCells: number };
+}
+
+// План зала: по строкам столы, по столбцам окна дня. Отменённые брони не показываются; прошедшие дни доступны для просмотра.
+export async function getFloorPlan(
+  db: PrismaClient,
+  actor: Actor,
+  dateKey: string | undefined,
+  now: Date,
+  timeZone: string,
+): Promise<AdminResult<FloorPlan>> {
+  if (!can(actor.role, "booking:view_all")) return { ok: false, reason: "forbidden" };
+  const todayKey = localDateKey(now, timeZone);
+  const date = parseDateKey(dateKey ?? "") ?? (parseDateKey(todayKey) as LocalDate);
+  const key = `${String(date.year).padStart(4, "0")}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
+  const keyOf = (d: LocalDate) => `${String(d.year).padStart(4, "0")}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}`;
+
+  const open = isOpenDay(date);
+  const windows = windowsForDate(date, timeZone);
+  const dayStart = zonedTimeToUtc({ ...date, hour: 0, minute: 0 }, timeZone);
+  const dayEnd = zonedTimeToUtc({ ...addDays(date, 1), hour: 0, minute: 0 }, timeZone);
+
+  const [tables, bookings, slots] = await Promise.all([
+    db.table.findMany({ select: { id: true, name: true, capacity: true, isActive: true }, orderBy: [{ capacity: "asc" }, { name: "asc" }] }),
+    db.booking.findMany({
+      where: { startsAt: { gte: dayStart, lt: dayEnd }, status: { not: "cancelled" } },
+      select: { id: true, tableId: true, startsAt: true, partySize: true, status: true, comment: true, user: { select: { name: true } } },
+    }),
+    db.slot.findMany({ where: { startsAt: { gte: dayStart, lt: dayEnd }, isClosed: true }, select: { startsAt: true, reason: true } }),
+  ]);
+  const closedBy = new Map(slots.map((x) => [x.startsAt.getTime(), x.reason]));
+  // Активная бронь важнее завершённой в той же ячейке (на практике они не пересекаются).
+  const rank: Record<BookingStatus, number> = { confirmed: 4, pending: 3, completed: 2, no_show: 1, cancelled: 0 };
+  const cellOf = (tableId: string, startsAt: Date): FloorCell | null => {
+    const found = bookings
+      .filter((b) => b.tableId === tableId && b.startsAt.getTime() === startsAt.getTime())
+      .sort((x, y) => rank[y.status] - rank[x.status])[0];
+    return found ? { id: found.id, guestName: found.user.name, partySize: found.partySize, status: found.status, comment: found.comment } : null;
+  };
+
+  const rows = tables.map((table) => ({ table, cells: windows.map((w) => cellOf(table.id, w.startsAt)) }));
+  const used = rows.flatMap((r) => r.cells).filter((c): c is FloorCell => c !== null);
+  const freeCells = rows.filter((r) => r.table.isActive).reduce((sum, r) => sum + r.cells.filter((c, i) => c === null && !closedBy.has(windows[i].startsAt.getTime())).length, 0);
+
+  return {
+    ok: true,
+    data: {
+      date: key,
+      dateLabel: new Intl.DateTimeFormat("ru-RU", { timeZone, weekday: "long", day: "numeric", month: "long" }).format(dayStart),
+      prev: keyOf(addDays(date, -1)),
+      next: keyOf(addDays(date, 1)),
+      today: todayKey,
+      isOpenDay: open,
+      columns: windows.map((w) => ({
+        time: localTime(w.startsAt, timeZone),
+        startsAt: w.startsAt.toISOString(),
+        closed: closedBy.has(w.startsAt.getTime()),
+        reason: closedBy.get(w.startsAt.getTime()) ?? null,
+      })),
+      rows,
+      totals: { bookings: used.length, guests: used.reduce((sum, c) => sum + c.partySize, 0), freeCells },
     },
   };
 }

@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Icon } from "@/components/ui/Icon";
 import { InlineLoading } from "@/components/ui/Loading";
 import { Notice } from "@/components/ui/Notice";
+import { RadioPills } from "@/components/ui/RadioPills";
 import { MAX_PARTY_SIZE, MIN_PARTY_SIZE } from "@/lib/booking/rules";
 
 interface Win {
@@ -121,42 +122,21 @@ export function BookingForm() {
             На ближайшие две недели нет свободного стола для {partySize} гостей. Попробуйте изменить число гостей.
           </EmptyState>
         ) : (
-          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Дата">
-            {days.map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                role="radio"
-                aria-checked={date === key}
-                onClick={() => {
-                  setDate(key);
-                  setStartsAt(null);
-                }}
-                className={`vm-btn vm-btn-sm ${date === key ? "vm-btn-primary" : "vm-btn-secondary"}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <RadioPills
+            label="Дата"
+            options={days.map(([key, label]) => ({ value: key, label }))}
+            value={date}
+            onChange={(key) => {
+              setDate(key);
+              setStartsAt(null);
+            }}
+          />
         )}
       </Step>
 
       {times.length > 0 && (
         <Step n={3} title="Выберите время">
-          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Время">
-            {times.map((w) => (
-              <button
-                key={w.startsAt}
-                type="button"
-                role="radio"
-                aria-checked={startsAt === w.startsAt}
-                onClick={() => setStartsAt(w.startsAt)}
-                className={`vm-btn ${startsAt === w.startsAt ? "vm-btn-primary" : "vm-btn-secondary"}`}
-              >
-                {w.time}
-              </button>
-            ))}
-          </div>
+          <RadioPills label="Время" size="md" options={times.map((w) => ({ value: w.startsAt, label: w.time }))} value={startsAt} onChange={setStartsAt} />
         </Step>
       )}
 

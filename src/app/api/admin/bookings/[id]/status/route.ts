@@ -29,6 +29,8 @@ export async function POST(request: Request, ctx: RouteContext<"/api/admin/booki
       return jsonError(404, "not_found", "Бронь не найдена");
     case "invalid_transition":
       return jsonError(409, "invalid_transition", "Такой переход статуса недопустим");
+    case "too_early":
+      return jsonError(409, "too_early", "Завершить бронь или отметить «не пришёл» можно после её начала");
     case "stale":
       return jsonError(409, "conflict", "Статус брони уже изменился, обновите страницу");
     default:

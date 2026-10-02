@@ -15,10 +15,13 @@ export const bookingFilterSchema = z
     status: z.preprocess(emptyToUndefined, status.optional()),
     from: z.preprocess(emptyToUndefined, dateKey.optional()),
     to: z.preprocess(emptyToUndefined, dateKey.optional()),
+    page: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(10000).optional()),
   })
   .refine((v) => !v.from || !v.to || v.from <= v.to, { message: "Дата «с» не может быть позже даты «по»", path: ["to"] });
 
 export const statusChangeSchema = z.object({ status });
+
+export const tableChangeSchema = z.object({ tableId: z.string().trim().min(1, "Выберите стол").max(64) });
 
 export const slotChangeSchema = z.object({
   startsAt: z.iso.datetime("Некорректное время"),
@@ -30,4 +33,5 @@ export const auditQuerySchema = z.object({
   entityType: z.preprocess(emptyToUndefined, z.enum(["Booking", "Slot", "User"]).optional()),
   entityId: z.preprocess(emptyToUndefined, z.string().min(1).max(64).optional()),
   limit: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(300).optional()),
+  page: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(10000).optional()),
 });

@@ -22,15 +22,20 @@ export async function readJson(request: Request): Promise<unknown> {
   }
 }
 
-// Защита от CSRF для изменяющих запросов: браузер всегда присылает Origin, он должен совпасть с хостом сервиса.
+// Защита от CSRF для изменяющих запросов. Браузер всегда присылает Origin (он должен совпасть с хостом сервиса)
+// или хотя бы Sec-Fetch-Site (запрос с чужого сайта отклоняется). Клиенты без этих заголовков (curl, скрипты)
+// браузерную cookie-сессию подделать не могут, их пропускаем.
 export function isSameOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
-  if (!origin) return true; // не браузер (curl, тесты): cookie-сессию они не подделывают
-  try {
-    return new URL(origin).host === request.headers.get("host");
-  } catch {
-    return false;
+  if (origin) {
+    try {
+      return new URL(origin).host === request.headers.get("host");
+    } catch {
+      return false;
+    }
   }
+  const site = request.headers.get("sec-fetch-site");
+  return !site || site === "same-origin" || site === "none";
 }
 
 export function forbiddenOrigin() {

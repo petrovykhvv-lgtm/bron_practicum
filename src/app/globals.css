@@ -246,6 +246,15 @@ h1, h2, h3, .font-serif {
   .vm-btn-danger:hover:not(:disabled) {
     background: #7d2f24;
   }
+  .vm-btn-danger-outline {
+    background: var(--vm-glass-strong);
+    border-color: rgba(155, 59, 46, 0.5);
+    color: var(--vm-danger);
+  }
+  .vm-btn-danger-outline:hover:not(:disabled) {
+    background: var(--vm-danger-tint);
+    border-color: var(--vm-danger);
+  }
 
   /* ---------- Формы ---------- */
   .vm-label {
@@ -364,6 +373,68 @@ h1, h2, h3, .font-serif {
   }
   .vm-row:hover {
     background: rgba(31, 77, 58, 0.06);
+  }
+
+  /* ---------- Арка-визитка главной ---------- */
+  .vm-arch {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .vm-arch-art {
+    position: relative;
+    overflow: hidden;
+    aspect-ratio: 4 / 5;
+    border-radius: 999px 999px var(--r-xl) var(--r-xl);
+    border: 1px solid var(--vm-glass-edge);
+    box-shadow: var(--shadow-lift);
+    background:
+      radial-gradient(circle at 70% 24%, #fff7e3 0 8%, rgba(255, 247, 227, 0) 9%),
+      linear-gradient(180deg, #f2e9d6 0%, #cfe2d6 46%, #6f9a86 72%, #1f4d3a 100%);
+  }
+  .vm-arch-card {
+    position: relative;
+    z-index: 1;
+    margin: -5.5rem 1rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 18px 20px;
+    background: var(--vm-glass-strong);
+    -webkit-backdrop-filter: blur(18px) saturate(1.25);
+    backdrop-filter: blur(18px) saturate(1.25);
+    border: 1px solid var(--vm-glass-edge);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-glass);
+  }
+
+  /* ---------- Диалог подтверждения ---------- */
+  .vm-dialog {
+    margin: auto;
+    width: min(92vw, 28rem);
+    padding: 24px;
+    border: 1px solid var(--vm-glass-edge);
+    border-radius: var(--r-lg);
+    background: rgba(255, 255, 255, 0.96);
+    color: var(--vm-ink);
+    box-shadow: var(--shadow-lift);
+  }
+  .vm-dialog::backdrop {
+    background: rgba(27, 27, 27, 0.4);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+  }
+
+  /* ---------- Админка: плотные экраны на более плотных поверхностях ---------- */
+  .vm-admin .vm-card,
+  .vm-admin .vm-glass {
+    background: rgba(255, 255, 255, 0.94);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .vm-admin .vm-card-muted {
+    background: rgba(236, 233, 225, 0.96);
   }
 
   /* ---------- Пустое состояние и загрузка ---------- */

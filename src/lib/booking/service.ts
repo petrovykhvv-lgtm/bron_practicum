@@ -236,7 +236,7 @@ export async function cancelOwnBooking(
       now,
     });
     if (!check.ok) {
-      return { ok: false, reason: check.reason === "forbidden" ? "invalid_transition" : check.reason } as const;
+      return { ok: false, reason: check.reason === "forbidden" || check.reason === "too_early" ? "invalid_transition" : check.reason } as const;
     }
 
     const updated = await tx.booking.updateMany({

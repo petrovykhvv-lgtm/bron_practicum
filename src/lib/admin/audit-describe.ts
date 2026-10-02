@@ -39,6 +39,11 @@ export function describeAudit(entry: AuditEntryInput, ctx: AuditContext): { labe
       const transition = from && to ? ` (${STATUS_LABELS[from]} → ${STATUS_LABELS[to]})` : "";
       return { label: (to && labels[to]) ?? "Изменён статус брони", detail: `${bookingText(ctx)}${transition}` };
     }
+    case "booking_table_changed": {
+      const from = field(entry.before, "tableName");
+      const to = field(entry.after, "tableName");
+      return { label: "Изменён стол брони", detail: `${bookingText(ctx)}${from && to ? ` (${String(from)} → ${String(to)})` : ""}` };
+    }
     case "user_role_changed": {
       const from = field(entry.before, "role") as Role | undefined;
       const to = field(entry.after, "role") as Role | undefined;

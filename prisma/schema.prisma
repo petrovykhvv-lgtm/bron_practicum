@@ -1,6 +1,7 @@
 // Схема данных Verde Marea. Правила — в SPEC.md (раздел «Модель данных»).
-// Ограничения, которые Prisma не выражает (диапазоны, исключающие пересечения),
-// лежат в миграции 20261001192700_booking_constraints.
+// Все моменты времени — timestamptz. Ограничения, которых Prisma не выражает (исключающие
+// пересечения по столу и пользователю, проверки значений, триггер вместимости), лежат в SQL-миграциях
+// booking_constraints и timestamptz.
 
 generator client {
   provider = "prisma-client"
@@ -31,6 +32,7 @@ enum NotificationType {
   booking_cancelled
   booking_completed
   booking_no_show
+  booking_table_changed
   role_changed
 }
 
@@ -39,6 +41,7 @@ enum AuditAction {
   user_role_changed
   booking_created
   booking_status_changed
+  booking_table_changed
   slot_closed
   slot_reopened
 }
@@ -49,13 +52,13 @@ model User {
   name         String
   passwordHash String
   role         Role     @default(user)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
 
   sessions      Session[]
   bookings      Booking[]
   notifications Notification[]
-  auditEntries  AuditLog[]    @relation("AuditActor")
+  auditEntries  AuditLog[]     @relation("AuditActor")
   closedSlots   Slot[]
 
   @@index([role])
@@ -66,8 +69,8 @@ model Session {
   // В БД хранится только хеш токена, сам токен живёт в cookie.
   tokenHash String   @unique
   userId    String
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  expiresAt DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -80,7 +83,7 @@ model Table {
   name      String   @unique
   capacity  Int
   isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   bookings Booking[]
 }
@@ -90,12 +93,12 @@ model Table {
 // Нет записи — окно управляется только правилами; isClosed = false — окно снова открыто.
 model Slot {
   id          String   @id @default(cuid())
-  startsAt    DateTime @unique
+  startsAt    DateTime @unique @db.Timestamptz(3)
   isClosed    Boolean  @default(true)
   reason      String?
   updatedById String?
-  updatedAt   DateTime @updatedAt
-  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
 
   updatedBy User? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
 }
@@ -104,13 +107,13 @@ model Booking {
   id        String        @id @default(cuid())
   userId    String
   tableId   String
-  startsAt  DateTime
-  endsAt    DateTime
+  startsAt  DateTime      @db.Timestamptz(3)
+  endsAt    DateTime      @db.Timestamptz(3)
   partySize Int
   status    BookingStatus @default(pending)
   comment   String?
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  createdAt DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime      @updatedAt @db.Timestamptz(3)
 
   user          User           @relation(fields: [userId], references: [id], onDelete: Restrict)
   table         Table          @relation(fields: [tableId], references: [id], onDelete: Restrict)
@@ -128,8 +131,8 @@ model Notification {
   type      NotificationType
   title     String
   body      String
-  readAt    DateTime?
-  createdAt DateTime         @default(now())
+  readAt    DateTime?        @db.Timestamptz(3)
+  createdAt DateTime         @default(now()) @db.Timestamptz(3)
 
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
@@ -145,7 +148,7 @@ model AuditLog {
   entityId   String
   before     Json?
   after      Json?
-  createdAt  DateTime    @default(now())
+  createdAt  DateTime    @default(now()) @db.Timestamptz(3)
 
   actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
 

@@ -27,6 +27,7 @@ const at = (iso: string) => new Date(iso);
 const THU_12 = at("2026-10-08T09:00:00Z"); // чт 12:00 МСК
 const THU_21 = at("2026-10-08T18:00:00Z"); // чт 21:00 МСК
 const FRI_12 = at("2026-10-09T09:00:00Z"); // пт 12:00 МСК
+const AFTER = at("2026-10-08T22:00:00Z"); // все брони четверга уже начались
 
 run("административный контур", () => {
   const db = createPrismaClient(url);
@@ -115,7 +116,7 @@ run("административный контур", () => {
     it("для терминальных статусов переходов нет", async () => {
       const id = await book(guest1, THU_12);
       await setStatus(admin, id, "confirmed");
-      await setStatus(admin, id, "no_show");
+      await setStatus(admin, id, "no_show", AFTER);
       const r = await listAdminBookings(db, admin, {}, TZ);
       if (!r.ok) throw new Error();
       expect(r.data.bookings[0]).toMatchObject({ status: "no_show", nextStatuses: [] });
@@ -140,7 +141,7 @@ run("административный контур", () => {
     it("проходит цепочку pending → confirmed → completed, а super_admin тоже может", async () => {
       const id = await book(guest1, THU_12);
       expect((await setStatus(admin, id, "confirmed")).ok).toBe(true);
-      expect((await setStatus(boss, id, "completed")).ok).toBe(true);
+      expect((await setStatus(boss, id, "completed", AFTER)).ok).toBe(true);
       expect((await db.booking.findUniqueOrThrow({ where: { id } })).status).toBe("completed");
       expect(await db.notification.count({ where: { userId: guest1, type: "booking_completed" } })).toBe(1);
     });
@@ -148,7 +149,7 @@ run("административный контур", () => {
     it("отмечает no_show и уведомляет гостя", async () => {
       const id = await book(guest1, THU_12);
       await setStatus(admin, id, "confirmed");
-      expect((await setStatus(admin, id, "no_show")).ok).toBe(true);
+      expect((await setStatus(admin, id, "no_show", AFTER)).ok).toBe(true);
       expect(await db.notification.count({ where: { userId: guest1, type: "booking_no_show" } })).toBe(1);
     });
 
@@ -174,7 +175,22 @@ run("административный контур", () => {
       expect({ audit: await db.auditLog.count(), notes: await db.notification.count() }).toEqual(before);
     });
 
-    it("запрещает недопустимые переходы из активных статусов", async () => {
+    it("до начала брони нельзя завершить и отметить «не пришёл»: ничего не пишется; после начала можно", async () => {
+    const id = await book(guest1, THU_12);
+    await setStatus(admin, id, "confirmed");
+    const before = { audit: await db.auditLog.count(), notes: await db.notification.count() };
+    for (const to of ["completed", "no_show"] as const) {
+      expect(await setStatus(admin, id, to)).toEqual({ ok: false, reason: "too_early" });
+      expect(await setStatus(boss, id, to)).toEqual({ ok: false, reason: "too_early" });
+    }
+    expect({ audit: await db.auditLog.count(), notes: await db.notification.count() }).toEqual(before);
+    const listed = await listAdminBookings(db, admin, {}, TZ);
+    if (!listed.ok) throw new Error();
+    expect(listed.data.bookings[0]).toMatchObject({ startsInFuture: true, nextStatuses: ["cancelled"] });
+    expect((await setStatus(admin, id, "completed", AFTER)).ok).toBe(true);
+  });
+
+  it("запрещает недопустимые переходы из активных статусов", async () => {
       const id = await book(guest1, THU_12);
       expect(await setStatus(admin, id, "completed")).toEqual({ ok: false, reason: "invalid_transition" });
       expect(await setStatus(admin, id, "no_show")).toEqual({ ok: false, reason: "invalid_transition" });
@@ -259,9 +275,9 @@ run("административный контур", () => {
       const a = await book(guest1, THU_12);
       const b = await book(guest2, THU_21);
       await setStatus(admin, a, "confirmed");
-      await setStatus(boss, a, "completed");
+      await setStatus(boss, a, "completed", AFTER);
       await setStatus(admin, b, "confirmed");
-      await setStatus(boss, b, "no_show");
+      await setStatus(boss, b, "no_show", AFTER);
       const c = await book(guest1, FRI_12);
       await cancelOwnBooking(db, { userId: guest1, bookingId: c, now: NOW, timeZone: TZ });
 

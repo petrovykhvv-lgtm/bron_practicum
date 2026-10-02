@@ -135,15 +135,26 @@ describe("машина состояний", () => {
   const start = new Date("2026-10-08T12:00:00Z");
   const early = new Date("2026-10-07T12:00:00Z");
   const late = new Date("2026-10-08T10:00:00Z");
+  const after = new Date("2026-10-08T13:00:00Z"); // бронь уже началась
   const mk = (over: Partial<Parameters<typeof checkTransition>[0]>) =>
     checkTransition({ from: "pending", to: "confirmed", actorRole: "admin", actorIsOwner: false, startsAt: start, now: early, ...over });
 
   it("admin и super_admin выполняют допустимые переходы", () => {
     for (const actorRole of ["admin", "super_admin"] as const) {
       expect(mk({ actorRole }).ok).toBe(true);
-      expect(mk({ actorRole, from: "confirmed", to: "completed" }).ok).toBe(true);
-      expect(mk({ actorRole, from: "confirmed", to: "no_show" }).ok).toBe(true);
+      expect(mk({ actorRole, from: "confirmed", to: "completed", now: after }).ok).toBe(true);
+      expect(mk({ actorRole, from: "confirmed", to: "no_show", now: after }).ok).toBe(true);
       expect(mk({ actorRole, from: "confirmed", to: "cancelled" }).ok).toBe(true);
+    }
+  });
+
+  it("завершить и отметить «не пришёл» можно только после начала брони", () => {
+    for (const actorRole of ["admin", "super_admin"] as const) {
+      for (const to of ["completed", "no_show"] as const) {
+        expect(mk({ actorRole, from: "confirmed", to, now: early })).toEqual({ ok: false, reason: "too_early" });
+        expect(mk({ actorRole, from: "confirmed", to, now: start }).ok).toBe(true); // ровно в момент начала
+      }
+      expect(mk({ actorRole, from: "confirmed", to: "cancelled", now: early }).ok).toBe(true); // отмена возможна заранее
     }
   });
 
