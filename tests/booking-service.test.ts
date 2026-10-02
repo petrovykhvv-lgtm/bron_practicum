@@ -172,6 +172,19 @@ run("бронирование: сервис", () => {
     });
   });
 
+  describe("нагрузка на гонки", () => {
+    it("шесть одновременных запросов на три стола: ровно три успеха, остальные — понятные отказы", async () => {
+      const extra: string[] = [];
+      for (let i = 0; i < 3; i++) extra.push((await db.user.create({ data: { email: `x${i}@t.local`, name: "X", passwordHash: "x" } })).id);
+      const users = [u1, u2, u3, ...extra];
+      const results = await Promise.all(users.map((id) => book(id, THU_12, 2)));
+      expect(results.filter((r) => r.ok)).toHaveLength(3);
+      for (const r of results.filter((x) => !x.ok)) expect(["no_table", "busy"]).toContain((r as { reason: string }).reason);
+      const rows = await db.booking.findMany({ where: { startsAt: THU_12 } });
+      expect(new Set(rows.map((r) => r.tableId)).size).toBe(rows.length);
+    });
+  });
+
   describe("мои брони и отмена", () => {
     it("пользователь видит только свои брони со столом и признаком отмены", async () => {
       await book(u1, THU_12);

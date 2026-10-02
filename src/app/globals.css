@@ -44,9 +44,10 @@ body {
   line-height: 1.55;
 }
 
-h1, h2 {
+h1, h2, .font-serif {
   font-family: var(--font-serif);
   line-height: 1.15;
+  font-variant-numeric: lining-nums;
 }
 
 :focus-visible {

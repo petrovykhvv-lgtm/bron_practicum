@@ -16,7 +16,7 @@ import {
 } from "./rules";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const CREATE_ATTEMPTS = 3;
+const CREATE_ATTEMPTS = 4;
 
 // Нарушение ограничения БД (Prisma 7 + драйвер pg): код P2039, причина лежит в driverAdapterError.
 export function dbViolation(error: unknown): { code?: string; message: string } | null {
@@ -24,6 +24,12 @@ export function dbViolation(error: unknown): { code?: string; message: string } 
     ?.meta?.driverAdapterError?.cause;
   if (!cause) return null;
   return { code: cause.originalCode, message: cause.originalMessage ?? "" };
+}
+
+export function isRetryableTransactionError(error: unknown): boolean {
+  if ((error as { code?: string })?.code === "P2034") return true;
+  const code = dbViolation(error)?.code;
+  return code === "40P01" || code === "40001";
 }
 
 async function loadContext(db: PrismaClient, now: Date) {
@@ -184,6 +190,9 @@ export async function createBooking(
       return { ok: true, booking: toBookingDto(row, now, timeZone) };
     } catch (error) {
       // Гонку двух одновременных запросов закрывает БД; здесь превращаем отказ в понятный результат.
+      // Конкурирующие вставки под EXCLUDE-ограничением Postgres может прервать как взаимную блокировку
+      // (Prisma P2034, SQLSTATE 40P01/40001): транзакция откатилась целиком, повторяем с новым состоянием.
+      if (isRetryableTransactionError(error)) continue;
       const violation = dbViolation(error);
       if (violation?.message.includes("booking_user_no_overlap")) return { ok: false, reason: "user_conflict" };
       if (violation?.message.includes("booking_table_no_overlap")) continue; // стол занял другой запрос: подберём другой

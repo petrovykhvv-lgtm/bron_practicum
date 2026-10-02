@@ -27,9 +27,9 @@ export async function SiteHeader() {
               <Link href="/notifications" className={linkClass}>
                 Уведомления{unread > 0 ? ` (${unread})` : ""}
               </Link>
-              {can(user.role, "user:list") && (
-                <Link href="/admin/users" className={linkClass}>
-                  Пользователи
+              {can(user.role, "booking:view_all") && (
+                <Link href="/admin" className={linkClass}>
+                  Администрирование
                 </Link>
               )}
               <Link href="/account" className={linkClass}>

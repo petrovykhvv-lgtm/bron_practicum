@@ -44,6 +44,24 @@ export function can(role: Role, permission: Permission): boolean {
   return PERMISSION_MATRIX[role].has(permission);
 }
 
+// Какие сущности истории видит роль: admin — брони и окна записи, super_admin — ещё пользователей и роли.
+export const AUDIT_ENTITY_TYPES: Record<Role, readonly string[]> = {
+  user: [],
+  admin: ["Booking", "Slot"],
+  super_admin: ["Booking", "Slot", "User"],
+};
+
+// Описание возможностей для интерфейса: те же права, что проверяет сервер.
+export const CAPABILITIES: { permission: Permission; label: string }[] = [
+  { permission: "booking:view_all", label: "Видеть все бронирования и фильтровать их" },
+  { permission: "booking:change_status", label: "Подтверждать, отменять, завершать брони и отмечать «не пришёл»" },
+  { permission: "slot:manage", label: "Закрывать и открывать окна записи" },
+  { permission: "user:list", label: "Видеть список пользователей" },
+  { permission: "audit:view_bookings", label: "Смотреть историю броней и окон" },
+  { permission: "user:change_role", label: "Повышать пользователя до администратора и понижать обратно" },
+  { permission: "audit:view_all", label: "Смотреть историю смены ролей и регистраций" },
+];
+
 export const ASSIGNABLE_ROLES: Role[] = ["user", "admin"];
 
 export type RoleChangeResult =
