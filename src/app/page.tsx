@@ -14,6 +14,11 @@ export default async function Home() {
             Личный кабинет
           </Link>
         </p>
+      ) : null}
+      {user ? (
+        <Link href="/book" className="vm-btn vm-btn-primary self-start">
+          Забронировать стол
+        </Link>
       ) : (
         <div className="flex gap-3">
           <Link href="/login" className="vm-btn vm-btn-primary">

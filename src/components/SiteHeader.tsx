@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { prisma } from "@/lib/db";
+import { countUnread } from "@/lib/booking/service";
 import { can } from "@/lib/permissions";
 import { LogoutButton } from "./LogoutButton";
 
 export async function SiteHeader() {
   const user = await getCurrentUser();
+  const unread = user ? await countUnread(prisma, user.id) : 0;
   const linkClass = "text-sm font-medium text-vm-cream hover:underline decoration-vm-gold underline-offset-4";
   return (
     <header className="bg-vm-green text-vm-cream">
@@ -15,6 +18,15 @@ export async function SiteHeader() {
         <nav className="flex flex-wrap items-center gap-4">
           {user ? (
             <>
+              <Link href="/book" className={linkClass}>
+                Забронировать
+              </Link>
+              <Link href="/bookings" className={linkClass}>
+                Мои брони
+              </Link>
+              <Link href="/notifications" className={linkClass}>
+                Уведомления{unread > 0 ? ` (${unread})` : ""}
+              </Link>
               {can(user.role, "user:list") && (
                 <Link href="/admin/users" className={linkClass}>
                   Пользователи
