@@ -16,7 +16,8 @@ export async function startSession(userId: string): Promise<void> {
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    // Secure только если сервис отдаётся по HTTPS (SESSION_COOKIE_SECURE=true): по http://localhost Safari отвергает такие cookie.
+    secure: process.env.SESSION_COOKIE_SECURE === "true",
     path: "/",
     expires: expiresAt,
   });

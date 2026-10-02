@@ -99,7 +99,7 @@ export default async function AdminBookingsPage({ searchParams }: PageProps<"/ad
                   <p className="font-semibold">{b.dateLabel}</p>
                   <p className="text-sm text-vm-muted">{b.time}</p>
                 </div>
-                <div className="text-sm">
+                <div className="min-w-0 text-sm [overflow-wrap:anywhere]">
                   <p>{b.guest.name}</p>
                   <p className="text-vm-muted">{b.guest.email}</p>
                   {b.comment && <p className="mt-1">«{b.comment}»</p>}
