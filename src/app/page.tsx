@@ -28,10 +28,10 @@ export default async function Home() {
       <section className="grid items-center gap-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <div className="vm-glass vm-hero flex flex-col gap-6">
           <span className="vm-eyebrow">Ресторан у воды</span>
-          <h1 className="vm-title" style={{ fontSize: "clamp(2.5rem, 5vw, 4.5rem)" }}>
+          <h1 className="vm-title" style={{ fontSize: "clamp(1.5rem, 2.6vw, 2.5rem)" }}>
             Verde Marea
             <br />
-            <em>ваш стол ждёт вас</em>
+            <em className="whitespace-nowrap">ваш стол ждёт вас</em>
           </h1>
           <p className="vm-lead">
             Средиземноморская кухня и неспешный вечер у воды. Выберите дату, время и число гостей — подходящий стол мы назначим сами.
