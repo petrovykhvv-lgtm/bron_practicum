@@ -2,6 +2,9 @@ import Link from "next/link";
 import { BookingHistory } from "@/components/admin/BookingHistory";
 import { StatusActions } from "@/components/admin/StatusActions";
 import { StatusBadge } from "@/components/StatusBadge";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Notice } from "@/components/ui/Notice";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { getRestaurantTz } from "@/lib/config";
 import { prisma } from "@/lib/db";
 import { bookingFilterSchema } from "@/lib/admin/schemas";
@@ -39,11 +42,11 @@ export default async function AdminBookingsPage({ searchParams }: PageProps<"/ad
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-4xl font-bold">Брони</h1>
+      <PageHeader eyebrow="Администрирование" title={<>Все <em>брони</em></>} description="Фильтруйте поток, назначенный стол виден в каждой строке; доступны только разрешённые переходы статуса." />
 
       <nav aria-label="Быстрые фильтры" className="flex flex-wrap gap-2">
         {presets.map((p) => (
-          <Link key={p.label} href={p.href} className="vm-btn vm-btn-secondary" style={{ minHeight: 36, padding: "0 14px", fontSize: 14 }}>
+          <Link key={p.label} href={p.href} className="vm-btn vm-btn-secondary vm-btn-sm">
             {p.label}
           </Link>
         ))}
@@ -68,13 +71,11 @@ export default async function AdminBookingsPage({ searchParams }: PageProps<"/ad
           <input id="to" name="to" type="date" defaultValue={filter.to ?? ""} className="vm-input" />
         </div>
         <button type="submit" className="vm-btn vm-btn-primary">Показать</button>
-        <Link href="/admin/bookings" className="text-sm font-semibold text-vm-green hover:underline">Сбросить</Link>
+        <Link href="/admin/bookings" className="text-sm font-semibold text-vm-green underline decoration-vm-gold underline-offset-4">Сбросить</Link>
       </form>
 
       {!parsed.success && (
-        <p role="alert" className="rounded-md bg-vm-danger-tint px-3 py-2 text-sm text-vm-danger">
-          Фильтры заданы неверно ({parsed.error.issues[0]?.message}), показаны все брони.
-        </p>
+        <Notice kind="error">Фильтры заданы неверно ({parsed.error.issues[0]?.message}), показаны все брони.</Notice>
       )}
 
       <p className="text-sm text-vm-muted">
@@ -83,15 +84,17 @@ export default async function AdminBookingsPage({ searchParams }: PageProps<"/ad
       </p>
 
       {bookings.length === 0 ? (
-        <p className="text-vm-muted">По выбранным фильтрам броней нет.</p>
+        <EmptyState icon="list" title="Броней не найдено" action={<Link href="/admin/bookings" className="vm-btn vm-btn-secondary vm-btn-sm">Сбросить фильтры</Link>}>
+          По выбранным фильтрам броней нет. Измените статус или период.
+        </EmptyState>
       ) : (
         <div className="vm-card p-0">
-          <div className={`hidden bg-vm-green-tint px-4 py-3 text-sm font-semibold md:grid ${COLS} md:gap-4`}>
+          <div className={`vm-table-head hidden px-4 py-3 md:grid ${COLS} md:gap-4`}>
             <span>Дата и время</span><span>Гость</span><span>Гостей</span><span>Стол</span><span>Статус</span><span>Действия</span>
           </div>
           <ul>
             {bookings.map((b) => (
-              <li key={b.id} className={`flex flex-col gap-2 border-t border-vm-line px-4 py-3 first:border-t-0 hover:bg-vm-green-tint md:border-t ${GRID}`}>
+              <li key={b.id} className={`vm-row flex flex-col gap-2 px-4 py-3 ${GRID}`}>
                 <div>
                   <p className="font-semibold">{b.dateLabel}</p>
                   <p className="text-sm text-vm-muted">{b.time}</p>

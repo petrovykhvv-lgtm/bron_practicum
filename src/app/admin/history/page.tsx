@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Notice } from "@/components/ui/Notice";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { getRestaurantTz } from "@/lib/config";
 import { prisma } from "@/lib/db";
 import { auditQuerySchema } from "@/lib/admin/schemas";
@@ -22,22 +25,22 @@ export default async function AdminHistoryPage({ searchParams }: PageProps<"/adm
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-4xl font-bold">История изменений</h1>
+      <PageHeader eyebrow="Администрирование" title={<>История <em>изменений</em></>} description="Кто, что и когда сделал: брони, окна записи и роли." />
       <nav aria-label="Тип записей" className="flex flex-wrap gap-2">
-        <Link href="/admin/history" className="vm-btn vm-btn-secondary" style={{ minHeight: 36, padding: "0 14px", fontSize: 14 }}>Все</Link>
+        <Link href="/admin/history" className="vm-btn vm-btn-secondary vm-btn-sm">Все</Link>
         {types.map((t) => (
-          <Link key={t} href={`/admin/history?type=${t}`} className="vm-btn vm-btn-secondary" style={{ minHeight: 36, padding: "0 14px", fontSize: 14 }}>
+          <Link key={t} href={`/admin/history?type=${t}`} className="vm-btn vm-btn-secondary vm-btn-sm">
             {TYPE_LABELS[t]}
           </Link>
         ))}
       </nav>
       {!can(user.role, "audit:view_all") && (
-        <p className="max-w-3xl text-sm text-vm-muted">
+        <Notice kind="info" className="max-w-3xl">
           Изменения ролей и регистрации видит только суперадминистратор. Вам доступна история броней и окон записи.
-        </p>
+        </Notice>
       )}
       {result.data.length === 0 ? (
-        <p className="text-vm-muted">Записей нет.</p>
+        <div className="max-w-3xl"><EmptyState icon="list" title="Записей нет">В выбранном разделе пока ничего не происходило.</EmptyState></div>
       ) : (
         <ol className="flex max-w-4xl flex-col gap-2">
           {result.data.map((e) => (

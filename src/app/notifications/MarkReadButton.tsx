@@ -15,8 +15,8 @@ export function MarkReadButton() {
   }
 
   return (
-    <button type="button" className="vm-btn vm-btn-secondary" disabled={busy} onClick={markAll}>
-      Отметить всё прочитанным
+    <button type="button" className="vm-btn vm-btn-secondary vm-btn-sm" disabled={busy} onClick={markAll}>
+      {busy ? "Отмечаем…" : "Отметить всё прочитанным"}
     </button>
   );
 }

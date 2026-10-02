@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { AdminNav } from "@/components/admin/AdminNav";
+import { NavLinks } from "@/components/ui/NavLinks";
+import { Icon } from "@/components/ui/Icon";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { ROLE_LABELS } from "@/lib/labels";
 import { can } from "@/lib/permissions";
@@ -10,7 +11,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   if (!can(user.role, "booking:view_all")) redirect("/account?denied=1");
 
   const items = [
-    { href: "/admin", label: "Обзор", show: true },
+    { href: "/admin", label: "Обзор", exact: true, show: true },
     { href: "/admin/bookings", label: "Брони", show: can(user.role, "booking:view_all") },
     { href: "/admin/slots", label: "Окна записи", show: can(user.role, "slot:manage") },
     { href: "/admin/history", label: "История", show: can(user.role, "audit:view_bookings") },
@@ -18,11 +19,11 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   ].filter((i) => i.show);
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-vm-line pb-3">
-        <AdminNav items={items} />
+    <div className="flex flex-col gap-8">
+      <div className="vm-glass vm-glass-strong flex flex-wrap items-center justify-between gap-3 px-3 py-2" style={{ borderRadius: "var(--r-lg)" }}>
+        <NavLinks items={items} label="Разделы администрирования" className="flex flex-wrap gap-1" />
         <span className="vm-badge bg-vm-gold-tint text-vm-ink">
-          Ваша роль: {ROLE_LABELS[user.role]}
+          <Icon name="shield" size={14} /> Ваша роль: {ROLE_LABELS[user.role]}
         </span>
       </div>
       {children}

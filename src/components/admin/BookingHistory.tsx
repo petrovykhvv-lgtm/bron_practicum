@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { InlineLoading } from "@/components/ui/Loading";
 
 interface Entry {
   id: string;
@@ -26,13 +27,13 @@ export function BookingHistory({ bookingId }: { bookingId: string }) {
 
   return (
     <div>
-      <button type="button" onClick={toggle} aria-expanded={open} className="text-sm font-semibold text-vm-green hover:underline">
+      <button type="button" onClick={toggle} aria-expanded={open} className="text-sm font-semibold text-vm-green underline decoration-vm-gold underline-offset-4">
         {open ? "Скрыть историю" : "История"}
       </button>
       {open && (
-        <div className="mt-2 rounded-md bg-vm-cream p-3">
+        <div className="mt-2 rounded-[var(--r-md)] border border-[var(--vm-hairline)] bg-white/60 p-3">
           {error && <p className="vm-error">{error}</p>}
-          {!error && entries === null && <p className="text-sm text-vm-muted">Загружаем…</p>}
+          {!error && entries === null && <InlineLoading />}
           {entries && entries.length === 0 && <p className="text-sm text-vm-muted">Записей нет.</p>}
           {entries && entries.length > 0 && (
             <ol className="flex flex-col gap-2">

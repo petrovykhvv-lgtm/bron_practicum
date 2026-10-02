@@ -15,13 +15,7 @@ export function LogoutButton() {
   }
 
   return (
-    <button
-      type="button"
-      onClick={logout}
-      disabled={busy}
-      className="vm-btn border-vm-gold text-vm-cream hover:bg-vm-green-hover"
-      style={{ minHeight: 36, padding: "0 16px", fontSize: 14 }}
-    >
+    <button type="button" onClick={logout} disabled={busy} className="vm-btn vm-btn-secondary vm-btn-sm">
       {busy ? "Выходим…" : "Выйти"}
     </button>
   );

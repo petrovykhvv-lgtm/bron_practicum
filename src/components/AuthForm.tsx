@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { Icon } from "./ui/Icon";
+import { Notice } from "./ui/Notice";
 
 type Mode = "login" | "register";
 
@@ -33,7 +35,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
     setBusy(false);
   }
 
-  const field = (name: string, label: string, type: string, autoComplete: string) => (
+  const field = (name: string, label: string, type: string, autoComplete: string, hint?: string) => (
     <div>
       <label className="vm-label" htmlFor={name}>
         {label}
@@ -46,30 +48,47 @@ export function AuthForm({ mode }: { mode: Mode }) {
         required
         className="vm-input"
         aria-invalid={fieldErrors[name] ? true : undefined}
-        aria-describedby={fieldErrors[name] ? `${name}-error` : undefined}
+        aria-describedby={fieldErrors[name] ? `${name}-error` : hint ? `${name}-hint` : undefined}
       />
-      {fieldErrors[name] && (
+      {fieldErrors[name] ? (
         <p id={`${name}-error`} className="vm-error">
           {fieldErrors[name]}
         </p>
+      ) : (
+        hint && (
+          <p id={`${name}-hint`} className="vm-hint">
+            {hint}
+          </p>
+        )
       )}
     </div>
   );
 
   return (
-    <form onSubmit={onSubmit} className="vm-card flex w-full max-w-md flex-col gap-4" noValidate>
-      <h1 className="text-4xl font-bold">{mode === "login" ? "Вход" : "Регистрация"}</h1>
+    <form onSubmit={onSubmit} className="vm-card flex w-full max-w-md flex-col gap-5" noValidate style={{ padding: 32 }}>
+      <div className="flex flex-col gap-3">
+        <span className="vm-icon-disc vm-icon-disc-green" style={{ width: 48, height: 48 }}>
+          <Icon name="leaf" size={24} />
+        </span>
+        <span className="vm-eyebrow">{mode === "login" ? "С возвращением" : "Добро пожаловать"}</span>
+        <h1 className="vm-title" style={{ fontSize: "2.5rem" }}>
+          {mode === "login" ? "Вход" : "Регистрация"}
+        </h1>
+      </div>
       {mode === "register" && field("name", "Имя", "text", "name")}
       {field("email", "Email", "email", "email")}
-      {field("password", "Пароль", "password", mode === "login" ? "current-password" : "new-password")}
-      {mode === "register" && <p className="text-xs text-vm-muted">Не короче 8 символов.</p>}
-      {formError && (
-        <p role="alert" className="rounded-md bg-vm-danger-tint px-3 py-2 text-sm text-vm-danger">
-          {formError}
-        </p>
-      )}
+      {field("password", "Пароль", "password", mode === "login" ? "current-password" : "new-password", mode === "register" ? "Не короче 8 символов." : undefined)}
+      {formError && <Notice kind="error">{formError}</Notice>}
       <button type="submit" disabled={busy} className="vm-btn vm-btn-primary">
-        {busy ? "Подождите…" : mode === "login" ? "Войти" : "Создать аккаунт"}
+        {busy ? (
+          <>
+            <span className="vm-spinner vm-spinner-light" aria-hidden="true" /> Подождите…
+          </>
+        ) : mode === "login" ? (
+          "Войти"
+        ) : (
+          "Создать аккаунт"
+        )}
       </button>
     </form>
   );

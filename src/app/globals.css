@@ -1,27 +1,57 @@
 @import "tailwindcss";
 
-/* Токены Verde Marea — design.md */
+/* Токены Verde Marea — design.md. Один источник правды для цвета, радиусов, теней и стекла. */
 :root {
+  color-scheme: light;
+
+  /* Бренд */
   --vm-green: #1f4d3a;
   --vm-green-hover: #183c2d;
+  --vm-green-soft: #2b6a51;
   --vm-green-tint: #e3ece6;
   --vm-gold: #c7a76c;
   --vm-gold-tint: #f2e9d6;
+  --vm-neutral-tint: #ece9e1; /* конечные и неактивные состояния: отменено, закрыто, «Нет» */
+  --vm-gold-ink: #7a5f26; /* золото для текста на светлом: контраст ≥ 4.5 */
   --vm-cream: #f5f1e8;
   --vm-ink: #1b1b1b;
   --vm-muted: #5e5b54;
+
+  /* Поверхности и границы */
   --vm-surface: #ffffff;
   --vm-line: #ddd6c6;
+  --vm-glass: rgba(255, 255, 255, 0.62);
+  --vm-glass-strong: rgba(255, 255, 255, 0.82);
+  --vm-glass-edge: rgba(255, 255, 255, 0.78);
+  --vm-hairline: rgba(31, 77, 58, 0.14);
+
+  /* Состояния */
   --vm-danger: #9b3b2e;
   --vm-danger-tint: #f5e1dd;
+
+  /* Радиусы */
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-lg: 24px;
+  --r-xl: 32px;
+  --r-pill: 999px;
+
+  /* Тени и градиенты */
+  --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 10px 36px rgba(31, 77, 58, 0.1), 0 1px 2px rgba(27, 27, 27, 0.06);
+  --shadow-lift: 0 14px 44px rgba(31, 77, 58, 0.16), 0 2px 4px rgba(27, 27, 27, 0.06);
+  --gradient-cta: linear-gradient(135deg, #2f7358 0%, #1f4d3a 55%, #183c2d 100%);
+  --gradient-gold: linear-gradient(135deg, #e0c88f 0%, #c7a76c 55%, #a98547 100%);
 }
 
 @theme inline {
   --color-vm-green: var(--vm-green);
   --color-vm-green-hover: var(--vm-green-hover);
+  --color-vm-green-soft: var(--vm-green-soft);
   --color-vm-green-tint: var(--vm-green-tint);
   --color-vm-gold: var(--vm-gold);
   --color-vm-gold-tint: var(--vm-gold-tint);
+  --color-vm-neutral-tint: var(--vm-neutral-tint);
+  --color-vm-gold-ink: var(--vm-gold-ink);
   --color-vm-cream: var(--vm-cream);
   --color-vm-ink: var(--vm-ink);
   --color-vm-muted: var(--vm-muted);
@@ -31,23 +61,66 @@
   --color-vm-danger-tint: var(--vm-danger-tint);
   --font-sans: var(--font-manrope), system-ui, sans-serif;
   --font-serif: var(--font-cormorant), Georgia, serif;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl);
+}
+
+/* ---------- Сцена: общий фон всех экранов (и гостя, и админки) ---------- */
+html {
+  background:
+    radial-gradient(60rem 40rem at 90% -10%, rgba(199, 167, 108, 0.4), transparent 60%),
+    radial-gradient(50rem 38rem at -10% 105%, rgba(31, 77, 58, 0.26), transparent 60%),
+    radial-gradient(40rem 30rem at 55% 40%, rgba(255, 255, 255, 0.6), transparent 70%),
+    var(--vm-cream);
+  background-attachment: fixed;
 }
 
 body {
-  background: var(--vm-cream);
+  position: relative;
+  min-height: 100vh;
   color: var(--vm-ink);
   font-family: var(--font-sans);
   font-size: 16px;
   line-height: 1.55;
+  background: transparent;
+  overflow-x: hidden;
 }
 
-h1, h2, .font-serif {
+/* Декоративные «камни»: мягкие сферы, как в референсах, лежат между фоном и контентом. Не несут информации. */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  border-radius: 50%;
+  pointer-events: none;
+}
+body::before {
+  width: clamp(14rem, 28vw, 26rem);
+  height: clamp(14rem, 28vw, 26rem);
+  right: -6rem;
+  top: 26vh;
+  background: radial-gradient(circle at 32% 28%, #fffaf0 0%, #ecd9ac 34%, #c7a76c 100%);
+  opacity: 0.72;
+  box-shadow: 0 30px 60px rgba(122, 95, 38, 0.25);
+}
+body::after {
+  width: clamp(16rem, 32vw, 30rem);
+  height: clamp(16rem, 32vw, 30rem);
+  left: -9rem;
+  bottom: -8rem;
+  background: radial-gradient(circle at 34% 28%, #d9eadf 0%, #6f9a86 42%, #1f4d3a 100%);
+  opacity: 0.6;
+  box-shadow: 0 30px 60px rgba(31, 77, 58, 0.3);
+}
+
+h1, h2, h3, .font-serif {
   font-family: var(--font-serif);
-  line-height: 1.15;
+  line-height: 1.12;
   font-variant-numeric: lining-nums;
+  letter-spacing: -0.005em;
 }
 
 :focus-visible {
@@ -55,80 +128,319 @@ h1, h2, .font-serif {
   outline-offset: 2px;
 }
 
+::selection {
+  background: var(--vm-gold-tint);
+}
+
 @layer components {
+  /* ---------- Стекло ---------- */
+  .vm-glass,
   .vm-card {
-    background: var(--vm-surface);
-    border-radius: var(--radius-lg);
-    padding: 24px;
-    box-shadow: 0 1px 2px rgba(27, 27, 27, 0.06), 0 4px 16px rgba(27, 27, 27, 0.06);
+    background: var(--vm-glass);
+    -webkit-backdrop-filter: blur(18px) saturate(1.25);
+    backdrop-filter: blur(18px) saturate(1.25);
+    border: 1px solid var(--vm-glass-edge);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-glass);
   }
+  .vm-card {
+    padding: 24px;
+  }
+  .vm-glass-strong {
+    background: var(--vm-glass-strong);
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .vm-glass,
+    .vm-card {
+      background: rgba(255, 255, 255, 0.94);
+    }
+  }
+  .vm-hero {
+    border-radius: var(--r-xl);
+    padding: clamp(24px, 5vw, 56px);
+  }
+
+  /* ---------- Типографика ---------- */
+  .vm-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--vm-gold-ink);
+  }
+  .vm-eyebrow::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--vm-gold);
+  }
+  .vm-title {
+    font-family: var(--font-serif);
+    font-weight: 700;
+    font-size: clamp(2.25rem, 5vw, 3.25rem);
+    color: var(--vm-ink);
+  }
+  .vm-title em {
+    font-style: italic;
+    font-weight: 600;
+    color: var(--vm-green);
+  }
+  .vm-lead {
+    font-size: 18px;
+    color: var(--vm-muted);
+    max-width: 40rem;
+  }
+
+  /* ---------- Кнопки: везде капсулы ---------- */
+  .vm-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 24px;
+    font-weight: 600;
+    border-radius: var(--r-pill);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background-color 0.15s, box-shadow 0.15s, transform 0.15s, border-color 0.15s;
+  }
+  .vm-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .vm-btn-sm {
+    min-height: 36px;
+    padding: 0 16px;
+    font-size: 14px;
+  }
+  .vm-btn-primary {
+    background: var(--gradient-cta);
+    color: var(--vm-cream);
+    box-shadow: 0 6px 18px rgba(31, 77, 58, 0.28);
+  }
+  .vm-btn-primary:hover:not(:disabled) {
+    background: var(--vm-green-hover);
+    box-shadow: 0 8px 22px rgba(31, 77, 58, 0.34);
+  }
+  .vm-btn-primary:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+  .vm-btn-secondary {
+    background: var(--vm-glass-strong);
+    border-color: rgba(31, 77, 58, 0.45);
+    color: var(--vm-green);
+  }
+  .vm-btn-secondary:hover:not(:disabled) {
+    background: var(--vm-green-tint);
+    border-color: var(--vm-green);
+  }
+  .vm-btn-danger {
+    background: var(--vm-danger);
+    color: #fff;
+  }
+  .vm-btn-danger:hover:not(:disabled) {
+    background: #7d2f24;
+  }
+
+  /* ---------- Формы ---------- */
   .vm-label {
     display: block;
     font-size: 14px;
     font-weight: 600;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
   }
   .vm-input {
     width: 100%;
-    height: 44px;
-    padding: 0 12px;
-    background: var(--vm-surface);
-    border: 1px solid var(--vm-line);
-    border-radius: var(--radius-sm);
+    min-height: 46px;
+    padding: 0 16px;
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(31, 77, 58, 0.2);
+    border-radius: var(--r-md);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  textarea.vm-input {
+    padding: 12px 16px;
+  }
+  .vm-input:hover {
+    border-color: rgba(31, 77, 58, 0.4);
   }
   .vm-input:focus {
     border-color: var(--vm-green);
+    box-shadow: 0 0 0 3px rgba(199, 167, 108, 0.35);
+    outline: none;
   }
   .vm-input[aria-invalid="true"] {
     border-color: var(--vm-danger);
+  }
+  .vm-hint {
+    color: var(--vm-muted);
+    font-size: 12px;
+    margin-top: 4px;
   }
   .vm-error {
     color: var(--vm-danger);
     font-size: 12px;
     margin-top: 4px;
   }
-  .vm-btn {
+
+  /* ---------- Бейджи и чипы ---------- */
+  .vm-badge {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    min-height: 44px;
-    padding: 0 24px;
-    font-weight: 600;
-    border-radius: var(--radius-md);
-    border: 1px solid transparent;
-    cursor: pointer;
-    transition: background-color 0.15s;
-  }
-  .vm-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  .vm-btn-primary {
-    background: var(--vm-green);
-    color: var(--vm-cream);
-  }
-  .vm-btn-primary:hover:not(:disabled) {
-    background: var(--vm-green-hover);
-  }
-  .vm-btn-secondary {
-    background: transparent;
-    border-color: var(--vm-green);
-    color: var(--vm-green);
-  }
-  .vm-btn-secondary:hover:not(:disabled) {
-    background: var(--vm-green-tint);
-  }
-  .vm-badge {
-    display: inline-block;
+    gap: 8px;
     padding: 4px 12px;
-    border-radius: 999px;
+    border-radius: var(--r-pill);
     font-size: 12px;
     font-weight: 600;
   }
+  .vm-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px 8px 8px;
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid var(--vm-glass-edge);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-glass);
+    font-size: 14px;
+    line-height: 1.25;
+  }
+  .vm-chip small {
+    display: block;
+    color: var(--vm-muted);
+    font-size: 12px;
+  }
+  .vm-icon-disc {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--gradient-gold);
+    color: #fff;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+  .vm-icon-disc-green {
+    background: var(--gradient-cta);
+    color: var(--vm-cream);
+  }
+
+  /* ---------- Уведомления (баннеры) ---------- */
+  .vm-notice {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 12px 16px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--vm-glass-edge);
+    border-left-width: 4px;
+    background: var(--vm-glass-strong);
+    font-size: 14px;
+    box-shadow: var(--shadow-glass);
+  }
+  .vm-notice-success { border-left-color: var(--vm-green); }
+  .vm-notice-info { border-left-color: var(--vm-gold); }
+  .vm-notice-warn { border-left-color: var(--vm-gold-ink); background: var(--vm-gold-tint); }
+  .vm-notice-error { border-left-color: var(--vm-danger); background: var(--vm-danger-tint); color: var(--vm-danger); }
+
+  /* ---------- Списки и таблицы ---------- */
+  .vm-table-head {
+    background: rgba(31, 77, 58, 0.09);
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .vm-row {
+    border-top: 1px solid var(--vm-hairline);
+    transition: background-color 0.15s;
+  }
+  .vm-row:first-child {
+    border-top: 0;
+  }
+  .vm-row:hover {
+    background: rgba(31, 77, 58, 0.06);
+  }
+
+  /* ---------- Пустое состояние и загрузка ---------- */
+  .vm-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 40px 24px;
+    text-align: center;
+    border: 1px dashed rgba(31, 77, 58, 0.3);
+    border-radius: var(--r-lg);
+    background: rgba(255, 255, 255, 0.45);
+  }
+  .vm-skeleton {
+    border-radius: var(--r-md);
+    background: linear-gradient(90deg, rgba(31, 77, 58, 0.07) 25%, rgba(31, 77, 58, 0.14) 50%, rgba(31, 77, 58, 0.07) 75%);
+    background-size: 200% 100%;
+    animation: vm-shimmer 1.4s ease-in-out infinite;
+  }
+  .vm-card-muted {
+    background: rgba(236, 233, 225, 0.85);
+  }
+  .vm-spinner-light {
+    border-color: rgba(245, 241, 232, 0.4);
+    border-top-color: var(--vm-cream);
+  }
+  .vm-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid rgba(31, 77, 58, 0.25);
+    border-top-color: var(--vm-green);
+    animation: vm-spin 0.8s linear infinite;
+  }
+
+  /* ---------- Шапка и навигация ---------- */
+  .vm-header {
+    background: var(--vm-glass-strong);
+    -webkit-backdrop-filter: blur(20px) saturate(1.3);
+    backdrop-filter: blur(20px) saturate(1.3);
+    border: 1px solid var(--vm-glass-edge);
+    border-radius: var(--r-pill);
+    box-shadow: var(--shadow-glass);
+  }
+  .vm-navlink {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 14px;
+    white-space: nowrap;
+    border-radius: var(--r-pill);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--vm-green);
+    transition: background-color 0.15s;
+  }
+  .vm-navlink:hover {
+    background: var(--vm-green-tint);
+  }
+  .vm-navlink[aria-current="page"] {
+    background: var(--vm-green);
+    color: var(--vm-cream);
+  }
+}
+
+@keyframes vm-shimmer {
+  to { background-position: -200% 0; }
+}
+@keyframes vm-spin {
+  to { transform: rotate(360deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *, *::before, *::after {
     transition: none !important;
+    animation: none !important;
   }
 }

@@ -23,7 +23,7 @@ export function CancelButton({ id }: { id: string }) {
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <button type="button" className="vm-btn vm-btn-secondary" style={{ minHeight: 36, padding: "0 16px" }} disabled={busy} onClick={cancel}>
+      <button type="button" className="vm-btn vm-btn-secondary vm-btn-sm" disabled={busy} onClick={cancel}>
         {busy ? "Отменяем…" : "Отменить"}
       </button>
       {error && (

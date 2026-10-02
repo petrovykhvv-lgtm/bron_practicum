@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { Role } from "@/generated/prisma/client";
+import { Notice } from "@/components/ui/Notice";
 import { can, checkRoleChange } from "@/lib/permissions";
 
 interface Row {
@@ -40,14 +41,10 @@ export function UserRoles({ me, users }: { me: { id: string; role: Role }; users
 
   return (
     <div className="flex flex-col gap-3">
-      {error && (
-        <p role="alert" className="rounded-md bg-vm-danger-tint px-3 py-2 text-sm text-vm-danger">
-          {error}
-        </p>
-      )}
+      {error && <Notice kind="error">{error}</Notice>}
       <div className="vm-card overflow-x-auto p-0">
         <table className="w-full text-left text-sm">
-          <thead className="bg-vm-green-tint">
+          <thead className="vm-table-head">
             <tr>
               <th className="px-4 py-3 font-semibold">Имя</th>
               <th className="px-4 py-3 font-semibold">Email</th>
@@ -60,17 +57,16 @@ export function UserRoles({ me, users }: { me: { id: string; role: Role }; users
               const target: Role | null = u.role === "user" ? "admin" : u.role === "admin" ? "user" : null;
               const allowed = target !== null && checkRoleChange({ actorRole: me.role, targetRole: u.role, newRole: target }).ok;
               return (
-                <tr key={u.id} className="border-t border-vm-line hover:bg-vm-green-tint">
+                <tr key={u.id} className="vm-row">
                   <td className="px-4 py-3">{u.name}</td>
                   <td className="px-4 py-3">{u.email}</td>
-                  <td className="px-4 py-3">{ROLE_LABELS[u.role]}</td>
+                  <td className="px-4 py-3"><span className="vm-badge bg-vm-green-tint text-vm-green">{ROLE_LABELS[u.role]}</span></td>
                   {canChange && (
                     <td className="px-4 py-3">
                       {allowed && target ? (
                         <button
                           type="button"
-                          className="vm-btn vm-btn-secondary"
-                          style={{ minHeight: 36, padding: "0 16px" }}
+                          className="vm-btn vm-btn-secondary vm-btn-sm"
                           disabled={busyId === u.id}
                           onClick={() => setRole(u.id, target)}
                         >

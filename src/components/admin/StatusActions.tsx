@@ -45,8 +45,7 @@ export function StatusActions({ bookingId, next }: { bookingId: string; next: Bo
             type="button"
             disabled={busy !== null}
             onClick={() => change(status)}
-            className={`vm-btn ${status === "confirmed" ? "vm-btn-primary" : "vm-btn-secondary"}`}
-            style={{ minHeight: 36, padding: "0 14px", fontSize: 14 }}
+            className={`vm-btn vm-btn-sm ${status === "confirmed" ? "vm-btn-primary" : "vm-btn-secondary"}`}
           >
             {busy === status ? "…" : STATUS_ACTION_LABELS[status]}
           </button>

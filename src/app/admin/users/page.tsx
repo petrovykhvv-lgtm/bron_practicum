@@ -1,3 +1,5 @@
+import { Notice } from "@/components/ui/Notice";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { prisma } from "@/lib/db";
 import { listUsers } from "@/lib/auth/service";
 import { requireStaffPage } from "@/lib/admin/guard";
@@ -11,11 +13,11 @@ export default async function AdminUsersPage() {
   const users = await listUsers(prisma);
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-4xl font-bold">Пользователи</h1>
+      <PageHeader eyebrow="Администрирование" title={<>Все <em>пользователи</em></>} />
       {!can(me.role, "user:change_role") && (
-        <p className="max-w-3xl text-sm text-vm-muted">
+        <Notice kind="info" className="max-w-3xl">
           Список доступен для просмотра. Менять роли пользователей может только суперадминистратор.
-        </p>
+        </Notice>
       )}
       <UserRoles
         me={{ id: me.id, role: me.role }}

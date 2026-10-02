@@ -10,7 +10,7 @@ export default async function LoginPage() {
       <AuthForm mode="login" />
       <p className="text-sm">
         Нет аккаунта?{" "}
-        <Link href="/register" className="font-semibold text-vm-green hover:underline">
+        <Link href="/register" className="font-semibold text-vm-green underline decoration-vm-gold underline-offset-4">
           Зарегистрируйтесь
         </Link>
       </p>

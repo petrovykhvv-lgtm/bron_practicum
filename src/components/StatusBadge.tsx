@@ -4,7 +4,7 @@ import type { BookingStatus } from "@/generated/prisma/client";
 const STYLES: Record<BookingStatus, { label: string; bg: string; fg: string; dot: string }> = {
   pending: { label: "Ожидает", bg: "var(--vm-gold-tint)", fg: "var(--vm-ink)", dot: "var(--vm-gold)" },
   confirmed: { label: "Подтверждена", bg: "var(--vm-green-tint)", fg: "var(--vm-green)", dot: "var(--vm-green)" },
-  cancelled: { label: "Отменена", bg: "#ece9e1", fg: "var(--vm-muted)", dot: "var(--vm-muted)" },
+  cancelled: { label: "Отменена", bg: "var(--vm-neutral-tint)", fg: "var(--vm-muted)", dot: "var(--vm-muted)" },
   completed: { label: "Завершена", bg: "var(--vm-green)", fg: "var(--vm-cream)", dot: "var(--vm-gold)" },
   no_show: { label: "Не пришёл", bg: "var(--vm-danger-tint)", fg: "var(--vm-danger)", dot: "var(--vm-danger)" },
 };

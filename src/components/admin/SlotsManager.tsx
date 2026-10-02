@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { Notice } from "@/components/ui/Notice";
 import type { SlotScheduleItem } from "@/lib/admin/service";
 
 export function SlotsManager({ slots }: { slots: SlotScheduleItem[] }) {
@@ -47,23 +48,18 @@ export function SlotsManager({ slots }: { slots: SlotScheduleItem[] }) {
     router.refresh();
   }
 
-  const noticeStyle = {
-    ok: "bg-vm-green-tint text-vm-green",
-    warn: "bg-vm-gold-tint text-vm-ink",
-    error: "bg-vm-danger-tint text-vm-danger",
-  } as const;
 
   return (
     <div className="flex flex-col gap-6">
       {notice && (
-        <p role={notice.kind === "error" ? "alert" : "status"} className={`max-w-3xl rounded-md px-3 py-2 text-sm ${noticeStyle[notice.kind]}`}>
+        <Notice kind={notice.kind === "ok" ? "success" : notice.kind} className="max-w-3xl">
           {notice.text}{" "}
           {notice.date && (
             <Link className="font-semibold underline" href={`/admin/bookings?from=${notice.date}&to=${notice.date}`}>
               Показать брони дня
             </Link>
           )}
-        </p>
+        </Notice>
       )}
       {days.map(([date, day]) => (
         <section key={date} className="flex flex-col gap-2">
@@ -72,12 +68,13 @@ export function SlotsManager({ slots }: { slots: SlotScheduleItem[] }) {
             {day.items.map((s) => (
               <li
                 key={s.startsAt}
-                className="vm-card flex flex-col gap-2"
-                style={s.closed ? { background: "#ece9e1" } : undefined}
+                className={`vm-card flex flex-col gap-3 ${s.closed ? "vm-card-muted" : ""}`}
+                style={{ padding: 20 }}
               >
                 <div className="flex items-center justify-between">
                   <span className="font-serif text-2xl font-semibold">{s.time}</span>
                   <span className={`vm-badge ${s.closed ? "bg-vm-danger-tint text-vm-danger" : "bg-vm-green-tint text-vm-green"}`}>
+                    <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: s.closed ? "var(--vm-danger)" : "var(--vm-green)" }} />
                     {s.closed ? "Закрыто" : "Открыто"}
                   </span>
                 </div>
@@ -96,20 +93,20 @@ export function SlotsManager({ slots }: { slots: SlotScheduleItem[] }) {
                       onChange={(e) => setReason(e.target.value)}
                     />
                     <div className="flex gap-2">
-                      <button type="button" className="vm-btn vm-btn-primary" style={{ minHeight: 36, padding: "0 14px" }} disabled={busy === s.startsAt} onClick={() => apply(s, true)}>
+                      <button type="button" className="vm-btn vm-btn-primary vm-btn-sm" disabled={busy === s.startsAt} onClick={() => apply(s, true)}>
                         Закрыть окно
                       </button>
-                      <button type="button" className="vm-btn vm-btn-secondary" style={{ minHeight: 36, padding: "0 14px" }} onClick={() => setEditing(null)}>
+                      <button type="button" className="vm-btn vm-btn-secondary vm-btn-sm" onClick={() => setEditing(null)}>
                         Не нужно
                       </button>
                     </div>
                   </div>
                 ) : s.closed ? (
-                  <button type="button" className="vm-btn vm-btn-secondary" style={{ minHeight: 36 }} disabled={busy === s.startsAt} onClick={() => apply(s, false)}>
+                  <button type="button" className="vm-btn vm-btn-secondary vm-btn-sm" disabled={busy === s.startsAt} onClick={() => apply(s, false)}>
                     Открыть
                   </button>
                 ) : (
-                  <button type="button" className="vm-btn vm-btn-secondary" style={{ minHeight: 36 }} onClick={() => { setEditing(s.startsAt); setReason(""); }}>
+                  <button type="button" className="vm-btn vm-btn-secondary vm-btn-sm" onClick={() => { setEditing(s.startsAt); setReason(""); }}>
                     Закрыть…
                   </button>
                 )}

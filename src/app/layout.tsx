@@ -20,7 +20,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="ru" className={`${manrope.variable} ${cormorant.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         <SiteHeader />
-        <main className="mx-auto w-full max-w-[1120px] flex-1 px-4 py-8 md:px-8">{children}</main>
+        <main className="mx-auto w-full max-w-[1120px] flex-1 px-4 py-8 md:px-8 md:py-10">{children}</main>
       </body>
     </html>
   );
